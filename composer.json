@@ -1,0 +1,30 @@
+{
+    "name": "mscode-pl/laravel-react-email",
+    "description": "React email for Laravel",
+    "keywords": ["laravel", "react-email", "email"],
+    "homepage": "https://github.com/mscode-pl/laravel-react-email",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+      {
+        "name": "Mateusz Sikorski",
+        "email": "mateusz@mscode.pl"
+      }
+    ],
+    "autoload": {
+        "psr-4": {
+            "MsCodePL\\LaravelReactEmail\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "MsCodePL\\LaravelReactEmail\\LaravelReactEmailServiceProvider"
+            ]
+        }
+    },
+    "require-dev": {
+        "orchestra/testbench": "^7.20 || ^8.0 || ^9.0 || ^10",
+        "pestphp/pest": "^1.20 || ^2.0 || ^3"
+    }
+}

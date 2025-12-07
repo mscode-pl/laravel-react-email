@@ -1,0 +1,56 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} / Testbench ${{ matrix.testbench }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: [ 8.2, 8.3, 8.4 ]
+        testbench: [ 7.*, 8.*, 9.*, 10.* ]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node v24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install PNPM Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom,curl,libxml,zip,mbstring,pcntl,pdo,pdo_sqlite,sqlite,bcmath,soap,intl,gd,exif,iconv,imagick,fileinfo
+          tools: composer:latest
+
+      - name: Install Backend Dependencies
+        run: |
+          composer require orchestra/testbench:"${{ matrix.testbench }}" --no-interaction --no-update --no-progress
+          composer update --no-progress --prefer-dist --no-interaction
+
+      - name: Execute Tests
+        run: pnpm exec pest
