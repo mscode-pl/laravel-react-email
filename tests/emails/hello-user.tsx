@@ -1,10 +1,20 @@
 import * as React from 'react';
-import { Text, Html } from '@react-email/components';
+import { Text, Html, Head, Body, Container } from '@react-email/components';
 
-export default function Email({ user }) {
+interface HelloUserProps {
+    firstName?: string;
+}
+
+export default function HelloUser({ firstName = 'User' }: HelloUserProps) {
     return (
-        <Html>
-            <Text>Hi, {user.firstName}</Text>
+        <Html lang="en">
+            <Head />
+            <Body style={{ fontFamily: 'Arial, sans-serif' }}>
+                <Container>
+                    <Text>Hi, $$firstName$$!</Text>
+                    <Text>Welcome to our platform.</Text>
+                </Container>
+            </Body>
         </Html>
     );
 }

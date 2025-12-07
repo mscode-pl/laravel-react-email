@@ -1,7 +1,7 @@
 {
     "name": "mscode-pl/laravel-react-email",
-    "description": "React email for Laravel",
-    "keywords": ["laravel", "react-email", "email"],
+    "description": "Build Laravel mailables with react-email",
+    "keywords": ["laravel", "react-email", "email", "mailable"],
     "homepage": "https://github.com/mscode-pl/laravel-react-email",
     "type": "library",
     "license": "MIT",
@@ -11,9 +11,23 @@
         "email": "mateusz@mscode.pl"
       }
     ],
+    "require": {
+        "php": "^8.1|^8.2|^8.3",
+        "spatie/laravel-package-tools": "^1.16",
+        "illuminate/contracts": "^10.0|^11.0"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^7.20 || ^8.0 || ^9.0 || ^10",
+        "pestphp/pest": "^1.20 || ^2.0 || ^3"
+    },
     "autoload": {
         "psr-4": {
             "MsCodePL\\LaravelReactEmail\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "MsCodePL\\LaravelReactEmail\\Tests\\": "tests/"
         }
     },
     "extra": {
@@ -23,8 +37,16 @@
             ]
         }
     },
-    "require-dev": {
-        "orchestra/testbench": "^7.20 || ^8.0 || ^9.0 || ^10",
-        "pestphp/pest": "^1.20 || ^2.0 || ^3"
-    }
+    "scripts": {
+        "post-autoload-dump": "@composer run prepare",
+        "prepare": "@php vendor/bin/testbench package:discover --ansi"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
 }

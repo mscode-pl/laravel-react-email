@@ -2,32 +2,32 @@
 
 namespace MsCodePL\LaravelReactEmail;
 
-use Illuminate\Support\ServiceProvider;
+use MsCodePL\LaravelReactEmail\Commands\BuildReactEmailsCommand;
+use MsCodePL\LaravelReactEmail\Commands\MakeReactEmailCommand;
+use MsCodePL\LaravelReactEmail\Commands\ReactEmailDevServerCommand;
+use Spatie\LaravelPackageTools\Package;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
 
-class LaravelReactEmailServiceProvider extends ServiceProvider
+class LaravelReactEmailServiceProvider extends PackageServiceProvider
 {
-    public function boot(): void
+    public function configurePackage(Package $package): void
     {
-        $this->publishConfiguration();
+        $package
+            ->name('laravel-react-email')
+            ->hasConfigFile('react-email')
+            ->hasCommands([
+                MakeReactEmailCommand::class,
+                BuildReactEmailsCommand::class,
+                ReactEmailDevServerCommand::class,
+            ]);
     }
 
-    public function register(): void
+    public function packageBooted(): void
     {
-        $this->mergeConfigFrom(
-            $this->getConfigPath(),
-            'laravel-react-email'
-        );
-    }
-
-    private function publishConfiguration(): void
-    {
-        $this->publishes([
-            $this->getConfigPath() => config_path('laravel-react-email.php'),
-        ]);
-    }
-
-    private function getConfigPath(): string
-    {
-        return dirname(__DIR__) . '/config/react-email.php';
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                $this->package->basePath('/../config/react-email.php') => config_path('react-email.php'),
+            ], 'react-email-config');
+        }
     }
 }

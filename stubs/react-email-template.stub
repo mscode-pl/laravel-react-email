@@ -1,0 +1,40 @@
+import * as React from 'react';
+import { Html, Head, Body, Container, Text, Button, Hr } from "@react-email/components";
+
+interface {{ functionName }}Props {
+  name?: string;
+}
+
+export default function {{ functionName }}({ name = 'User' }: {{ functionName }}Props) {
+  return (
+    <Html lang="en">
+      <Head />
+      <Body style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f4f4f4', padding: '20px' }}>
+        <Container style={{ backgroundColor: '#ffffff', padding: '20px', borderRadius: '5px' }}>
+          <Text style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>
+            Hello, $$name$$!
+          </Text>
+          <Text style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
+            This is your new email template for {{ name }}.
+          </Text>
+          <Hr style={{ margin: '20px 0', borderColor: '#e0e0e0' }} />
+          <Button
+            href="https://example.com"
+            style={{
+              backgroundColor: '#007bff',
+              color: '#ffffff',
+              padding: '12px 20px',
+              textDecoration: 'none',
+              borderRadius: '4px',
+              display: 'inline-block'
+            }}
+          >
+            Click me
+          </Button>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+

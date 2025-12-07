@@ -1,17 +1,24 @@
 {
   "name": "@mscode-pl/laravel-react-email",
+  "version": "1.0.0",
+  "description": "Build Laravel mailables with react-email",
   "license": "MIT",
   "repository": "https://github.com/mscode-pl/laravel-react-email",
+  "scripts": {
+    "dev": "react-email dev",
+    "build": "tsx scripts/react-email-renderer.tsx"
+  },
   "dependencies": {
-    "@react-email/render": "^2.0.0",
-    "react": "^19.2.1",
-    "react-dom": "^19.2.1",
-    "tsx": "^4.21.0"
+    "@react-email/components": "^1.0.1",
+    "@react-email/render": "^1.4.0",
+    "react": "^19.2.1"
   },
   "devDependencies": {
-    "@react-email/components": "^1.0.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
+    "react-email": "^5.0.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
     "prettier": "^3.7.4"
   }
 }
