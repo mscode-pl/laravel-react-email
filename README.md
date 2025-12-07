@@ -13,7 +13,14 @@ Build modern email templates using React components with Laravel integration.
 
 ```bash
 composer require mscode-pl/laravel-react-email
-pnpm install
+pnpm install vendor/mscode-pl/laravel-react-email
+```
+
+### Add script to package.json
+```json
+"scripts": {
+  "email:dev": "email dev --dir resources/emails"
+}
 ```
 
 ### Configuration
