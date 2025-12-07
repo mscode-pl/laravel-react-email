@@ -1,11 +1,17 @@
-import * as React from 'react';
+import React from 'react';
 import { Html, Head, Body, Container, Text, Button, Hr } from "@react-email/components";
 
 interface {{ functionName }}Props {
   name?: string;
+  user?: {
+    email?: string;
+  };
 }
 
-export default function {{ functionName }}({ name = 'User' }: {{ functionName }}Props) {
+export default function {{ functionName }}({
+  name = 'User',
+  user = { email: 'user@example.com' }
+}: {{ functionName }}Props) {
   return (
     <Html lang="en">
       <Head />
@@ -16,6 +22,9 @@ export default function {{ functionName }}({ name = 'User' }: {{ functionName }}
           </Text>
           <Text style={{ fontSize: '16px', lineHeight: '1.6', marginBottom: '20px' }}>
             This is your new email template for {{ name }}.
+          </Text>
+          <Text style={{ fontSize: '14px', color: '#666', marginBottom: '20px' }}>
+            Your email: $$user.email$$
           </Text>
           <Hr style={{ margin: '20px 0', borderColor: '#e0e0e0' }} />
           <Button
@@ -31,6 +40,11 @@ export default function {{ functionName }}({ name = 'User' }: {{ functionName }}
           >
             Click me
           </Button>
+          <Text style={{ fontSize: '12px', color: '#999', marginTop: '20px' }}>
+            Variables examples:
+            <br />- Simple: $$name$$ converts to {'{{ $name }}'}
+            <br />- Nested: $$user.email$$ converts to {'{{ $user[\'email\'] }}'}
+          </Text>
         </Container>
       </Body>
     </Html>

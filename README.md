@@ -76,7 +76,7 @@ This creates:
 Edit the generated React template at `resources/react-email/welcome-email.tsx`:
 
 ```tsx
-import * as React from 'react';
+import React from 'react';
 import { Html, Head, Body, Container, Text, Button } from "@react-email/components";
 
 interface WelcomeEmailProps {
@@ -101,6 +101,46 @@ export default function WelcomeEmail({ userName = 'User', activationUrl = '#' }:
 ```
 
 **Note:** Use `$$variableName$$` syntax for variables that will be replaced with Blade variables.
+
+### Working with variables
+
+You can use both simple and nested variables in your templates:
+
+```tsx
+export default function OrderConfirmation({ 
+  orderNumber = '12345',
+  user = { name: 'John', email: 'john@example.com' },
+  shop = { name: 'My Shop', domain: 'shop.example.com' }
+}) {
+  return (
+    <Html>
+      <Body>
+        {/* Simple variable */}
+        <Text>Order #$$orderNumber$$</Text>
+        
+        {/* Nested variables */}
+        <Text>Hello $$user.name$$,</Text>
+        <Text>Confirmation sent to $$user.email$$</Text>
+        
+        {/* Used in attributes */}
+        <Button href="https://$$shop.domain$$/orders/$$orderNumber$$">
+          View Order
+        </Button>
+      </Body>
+    </Html>
+  );
+}
+```
+
+In your Mailable, pass the data structure:
+
+```php
+public function __construct(
+    public string $orderNumber,
+    public array $user,
+    public array $shop,
+) {}
+```
 
 ### Compiling templates
 
@@ -195,7 +235,10 @@ php artisan react-email:build
 1. **Development**: Create React email templates using `@react-email/components`
 2. **Compilation**: Run `react-email:build` to compile React templates to static HTML Blade views
 3. **Usage**: Laravel Mailables reference the compiled Blade views
-4. **Variables**: Use `$$variableName$$` in React which gets converted to `{{ $variableName }}` in Blade
+4. **Variables**: Use special syntax in React which gets converted to Blade:
+   - Simple variables: `$$variableName$$` → `{{ $variableName }}`
+   - Nested variables: `$$user.email$$` → `{{ $user['email'] }}`
+   - Deep nesting: `$$shop.settings.domain$$` → `{{ $shop['settings']['domain'] }}`
 
 ## Requirements
 

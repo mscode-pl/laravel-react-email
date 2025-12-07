@@ -2,7 +2,26 @@
 
 All notable changes to `laravel-react-email` will be documented in this file.
 
-## [2.0.1]
+## [2.0.2] - 2025-12-07
+
+### Added
+
+- Support for nested variables using dot notation (e.g., `$$user.email$$` → `{{ $user['email'] }}`)
+- Windows path support in the React Email renderer
+- Comprehensive examples of nested variables in documentation
+
+### Changed
+
+- Improved variable detection to handle both simple and nested variables
+- Refactored variable conversion logic to eliminate code duplication
+- Updated all template stubs to use default React imports instead of namespace imports
+
+### Fixed
+
+- Fixed ESM import issues on Windows by converting paths to `file://` URLs
+- Fixed TypeScript errors by using default imports with `esModuleInterop`
+
+## [2.0.1] - 2025-12-07
 
 ### Added
 

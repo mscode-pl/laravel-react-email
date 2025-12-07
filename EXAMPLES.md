@@ -15,7 +15,7 @@ php artisan make:react-email WelcomeEmail
 File: `resources/react-email/welcome-email.tsx`
 
 ```tsx
-import * as React from 'react';
+import React from 'react';
 import { 
   Html, 
   Head, 
@@ -156,7 +156,7 @@ Mail::to($user->email)->send(
 File: `resources/react-email/reset-password.tsx`
 
 ```tsx
-import * as React from 'react';
+import React from 'react';
 import { 
   Html, 
   Head, 
@@ -314,7 +314,7 @@ class ResetPassword extends ReactMailable
 File: `resources/react-email/order-confirmation.tsx`
 
 ```tsx
-import * as React from 'react';
+import React from 'react';
 import { 
   Html, 
   Head, 
@@ -483,6 +483,241 @@ const footerStyle = {
 };
 ```
 
+## Email with Nested Variables
+
+This example shows how to use nested variables (available in v2.0+) for more complex data structures.
+
+### React Template
+
+File: `resources/react-email/account-notification.tsx`
+
+```tsx
+import React from 'react';
+import { 
+  Html, 
+  Head, 
+  Body, 
+  Container, 
+  Heading, 
+  Text, 
+  Button,
+  Section,
+  Hr
+} from "@react-email/components";
+
+interface AccountNotificationProps {
+  user?: {
+    name?: string;
+    email?: string;
+  };
+  shop?: {
+    name?: string;
+    domain?: string;
+    logo?: string;
+  };
+  action?: {
+    title?: string;
+    url?: string;
+  };
+}
+
+export default function AccountNotification({ 
+  user = { name: 'John Doe', email: 'john@example.com' },
+  shop = { name: 'My Shop', domain: 'shop.example.com', logo: 'logo.png' },
+  action = { title: 'View Account', url: '/account' }
+}: AccountNotificationProps) {
+  return (
+    <Html lang="en">
+      <Head />
+      <Body style={bodyStyle}>
+        <Container style={containerStyle}>
+          <Section style={headerStyle}>
+            <Text style={shopNameStyle}>$$shop.name$$</Text>
+          </Section>
+          
+          <Heading style={headingStyle}>
+            Hello $$user.name$$!
+          </Heading>
+          
+          <Text style={textStyle}>
+            This is an important notification regarding your account.
+          </Text>
+          
+          <Section style={infoBoxStyle}>
+            <Text style={infoLabelStyle}>Account Email:</Text>
+            <Text style={infoValueStyle}>$$user.email$$</Text>
+          </Section>
+          
+          <Section style={buttonContainerStyle}>
+            <Button href="https://$$shop.domain$$$$action.url$$" style={buttonStyle}>
+              $$action.title$$
+            </Button>
+          </Section>
+          
+          <Hr style={hrStyle} />
+          
+          <Text style={footerStyle}>
+            This email was sent by $$shop.name$$ ($$shop.domain$$)
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+const bodyStyle = {
+  backgroundColor: '#f6f9fc',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+};
+
+const containerStyle = {
+  margin: '0 auto',
+  padding: '20px',
+  width: '580px',
+  backgroundColor: '#ffffff',
+  borderRadius: '8px',
+};
+
+const headerStyle = {
+  borderBottom: '2px solid #e5e7eb',
+  paddingBottom: '20px',
+  marginBottom: '30px',
+};
+
+const shopNameStyle = {
+  fontSize: '24px',
+  fontWeight: '700',
+  color: '#1f2937',
+  margin: '0',
+};
+
+const headingStyle = {
+  fontSize: '24px',
+  lineHeight: '1.4',
+  fontWeight: '600',
+  color: '#1f2937',
+  marginBottom: '20px',
+};
+
+const textStyle = {
+  fontSize: '16px',
+  lineHeight: '26px',
+  color: '#374151',
+  marginBottom: '20px',
+};
+
+const infoBoxStyle = {
+  padding: '15px',
+  backgroundColor: '#f9fafb',
+  borderRadius: '6px',
+  marginBottom: '25px',
+};
+
+const infoLabelStyle = {
+  fontSize: '14px',
+  color: '#6b7280',
+  margin: '0 0 5px 0',
+};
+
+const infoValueStyle = {
+  fontSize: '16px',
+  color: '#1f2937',
+  fontWeight: '500',
+  margin: '0',
+};
+
+const buttonContainerStyle = {
+  textAlign: 'center' as const,
+  margin: '25px 0',
+};
+
+const buttonStyle = {
+  backgroundColor: '#3b82f6',
+  borderRadius: '6px',
+  color: '#fff',
+  fontSize: '16px',
+  fontWeight: '600',
+  textDecoration: 'none',
+  textAlign: 'center' as const,
+  display: 'inline-block',
+  padding: '12px 24px',
+};
+
+const hrStyle = {
+  borderColor: '#e5e7eb',
+  margin: '25px 0',
+};
+
+const footerStyle = {
+  fontSize: '14px',
+  color: '#6b7280',
+  textAlign: 'center' as const,
+};
+```
+
+### Mailable
+
+File: `app/Mail/AccountNotification.php`
+
+```php
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use MsCodePL\LaravelReactEmail\ReactMailable;
+
+class AccountNotification extends ReactMailable
+{
+    public function __construct(
+        public array $user,
+        public array $shop,
+        public array $action,
+    ) {}
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: 'Account Notification - ' . $this->shop['name'],
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            html: 'react-email.account-notification',
+            text: 'react-email.account-notification-text',
+        );
+    }
+}
+```
+
+### Usage
+
+```php
+use App\Mail\AccountNotification;
+use Illuminate\Support\Facades\Mail;
+
+Mail::to($user->email)->send(
+    new AccountNotification(
+        user: [
+            'name' => $user->name,
+            'email' => $user->email,
+        ],
+        shop: [
+            'name' => $shop->name,
+            'domain' => $shop->domain,
+            'logo' => $shop->logo_url,
+        ],
+        action: [
+            'title' => 'View Your Account',
+            'url' => '/account/settings',
+        ]
+    )
+);
+```
+
 ## Development Workflow
 
 ### 1. Start the Dev Server
@@ -543,6 +778,8 @@ export default function Email({
 
 Use `$$variableName$$` in your JSX where you want Laravel variables:
 
+#### Simple Variables
+
 ```tsx
 <Text>Hello $$userName$$!</Text>
 ```
@@ -551,6 +788,38 @@ This will be compiled to Blade:
 
 ```blade
 <p>Hello {{ $userName }}!</p>
+```
+
+#### Nested Variables (v2.0+)
+
+You can also use dot notation for nested array/object properties:
+
+```tsx
+<Text>Hello $$user.name$$!</Text>
+<Text>Email: $$user.email$$</Text>
+<Button href="https://$$shop.domain$$/orders/$$orderId$$">
+  View Order
+</Button>
+```
+
+This will be compiled to Blade:
+
+```blade
+<p>Hello {{ $user['name'] }}!</p>
+<p>Email: {{ $user['email'] }}</p>
+<a href="https://{{ $shop['domain'] }}/orders/{{ $orderId }}">
+  View Order
+</a>
+```
+
+In your Mailable:
+
+```php
+public function __construct(
+    public array $user,
+    public array $shop,
+    public string $orderId,
+) {}
 ```
 
 ### Styling
