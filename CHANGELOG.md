@@ -2,6 +2,13 @@
 
 All notable changes to `laravel-react-email` will be documented in this file.
 
+## [2.0.1]
+
+### Added
+
+- Support for Laravel 12.x
+- Support for PHP 8.4, 8.5
+
 ## [2.0.0] - 2025-12-07
 
 ### Breaking Changes

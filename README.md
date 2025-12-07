@@ -199,8 +199,8 @@ php artisan react-email:build
 
 ## Requirements
 
-- PHP 8.1 or higher
-- Laravel 10+
+- PHP 8.1 or higher (8.5 supported)
+- Laravel 10.x, 11.x, or 12.x
 - Node.js 16 or higher
 - React 18+
 
