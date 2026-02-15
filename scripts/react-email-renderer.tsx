@@ -174,6 +174,12 @@ function postProcessBlade(html: string): string {
  */
 function htmlToPlainText(html: string): string {
     return html
+        // Remove entire <head>…</head> block (contains <style> and <title>)
+        .replace(/<head[\s\S]*?<\/head>/gi, '')
+        // Remove entire <style>…</style> blocks (CSS content, @font-face, etc.)
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        // Remove entire <script>…</script> blocks
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
         // Block elements → newlines before stripping
         .replace(/<br\s*\/?>/gi, '\n')
         .replace(/<\/p>/gi, '\n\n')
@@ -191,6 +197,12 @@ function htmlToPlainText(html: string): string {
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
         .replace(/&nbsp;/g, ' ')
+        // Remove zero-width and invisible Unicode characters used as email preview spacers
+        .replace(/[\u200B\u200C\u200D\u200E\u200F\u00AD\uFEFF\u2060\u180E]/g, '')
+        // Collapse runs of spaces/tabs on a single line to one space
+        .replace(/[^\S\n]+/g, ' ')
+        // Remove lines that contain only whitespace
+        .replace(/^ +$/gm, '')
         // Collapse runs of blank lines to at most two
         .replace(/\n{3,}/g, '\n\n')
         .trim();
