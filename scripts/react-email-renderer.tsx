@@ -114,7 +114,7 @@ function postProcessBlade(html: string): string {
     // ---- 1. blade-foreach-auto (from smart-proxy .map()) ----
     // These contain $$arrayName__ITEM__.prop$$ markers that need special handling.
     html = html.replace(
-        /<blade-foreach-auto[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-foreach-auto>/g,
+        /<blade-foreach-auto[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-foreach-auto\s*>/g,
         (_match, items: string, content: string) => {
             const foreachVar = varToBlade(items);
 
@@ -137,7 +137,7 @@ function postProcessBlade(html: string): string {
 
     // ---- 2. blade-foreach (from BladeForEach component) ----
     html = html.replace(
-        /<blade-foreach[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-foreach>/g,
+        /<blade-foreach[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-foreach\s*>/g,
         (_match, items: string, content: string) => {
             const foreachVar = varToBlade(items);
             return `@foreach(${foreachVar} as $item)\n${content}\n@endforeach`;
@@ -146,7 +146,7 @@ function postProcessBlade(html: string): string {
 
     // ---- 3. blade-if (from BladeIf component) ----
     html = html.replace(
-        /<blade-if[\s\S]*?data-condition="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-if>/g,
+        /<blade-if[\s\S]*?data-condition="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-if\s*>/g,
         (_match, condition: string, content: string) => {
             const bladeCondition = convertConditionToBlade(condition);
             return `@if(${bladeCondition})\n${content}\n@endif`;
