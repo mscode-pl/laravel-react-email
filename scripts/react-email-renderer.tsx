@@ -157,6 +157,46 @@ function postProcessBlade(html: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// HTML → plain text conversion
+// ---------------------------------------------------------------------------
+
+/**
+ * Derives a plain-text version from already-processed HTML (which may contain
+ * Blade directives such as @foreach, @if, {{ $var }}).
+ *
+ * We intentionally do NOT use @react-email/render with plainText:true here,
+ * because that renderer strips all HTML tags — including our custom
+ * <blade-foreach*> and <blade-if> elements — before postProcessBlade() gets
+ * a chance to convert them to @foreach / @if directives.
+ *
+ * By deriving plain text from the post-processed HTML instead, Blade directives
+ * are already in-place as plain text and survive the tag-stripping step.
+ */
+function htmlToPlainText(html: string): string {
+    return html
+        // Block elements → newlines before stripping
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/tr>/gi, '\n')
+        .replace(/<\/h[1-6]>/gi, '\n\n')
+        .replace(/<\/li>/gi, '\n')
+        // Strip all remaining HTML tags — Blade directives (@foreach, {{ }})
+        // do NOT contain < or > so they are preserved intact.
+        .replace(/<[^>]+>/g, '')
+        // Decode common HTML entities
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        // Collapse runs of blank lines to at most two
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
+// ---------------------------------------------------------------------------
 // Main renderer
 // ---------------------------------------------------------------------------
 
@@ -190,38 +230,16 @@ async function renderEmailTemplate(templatePath: string) {
             { pretty: true },
         );
 
-        // ---- Render plain text ----
-        const rawPlainText = await render(
-            React.createElement(EmailComponent as React.FC, smartProps),
-            { plainText: true },
-        );
+        // ---- Post-process Blade directives on HTML ----
+        // Must happen before plain-text derivation so @foreach/@if survive.
+        const processedHtml = postProcessBlade(rawHtml);
 
-        // ---- Post-process Blade directives ----
-        let processedHtml      = postProcessBlade(rawHtml);
-        let processedPlainText = postProcessBlade(rawPlainText);
-
-        // ---- Collect $$var$$ names still present (for plain-text uppercase fix) ----
-        const variables: string[] = [];
-        processedHtml.replace(/\$\$([\w.]+)\$\$/g, (_match, variable: string) => {
-            if (!variables.includes(variable)) {
-                variables.push(variable);
-            }
-            return _match;
-        });
-
-        // Plain-text fix: react-email's plain-text renderer uppercases variable names
-        // (e.g. $$firstName$$ → $FIRSTNAME$), so we restore the correct casing.
-        variables.forEach(variable => {
-            if (!variable.includes('.')) {
-                const uppercaseVar = variable.toUpperCase();
-                const regex = new RegExp(`\\$${uppercaseVar}\\$`, 'g');
-                processedPlainText = processedPlainText.replace(regex, `$$${variable}$$`);
-            } else {
-                const uppercaseVar = variable.toUpperCase().replace(/\./g, '');
-                const regex = new RegExp(`\\$${uppercaseVar}\\$`, 'g');
-                processedPlainText = processedPlainText.replace(regex, `$$${variable}$$`);
-            }
-        });
+        // ---- Derive plain text from post-processed HTML ----
+        // Using plainText:true from @react-email/render would strip our custom
+        // <blade-foreach*> / <blade-if> elements before we can process them.
+        // Deriving from processedHtml means all Blade directives are already
+        // present as plain text before the HTML-tag stripping step.
+        const processedPlainText = htmlToPlainText(processedHtml);
 
         // ---- Replace remaining $$var$$ → {{ $var }} in both outputs ----
         const bladeHtml      = processedHtml.replace(
