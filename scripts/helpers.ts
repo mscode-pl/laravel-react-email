@@ -24,7 +24,7 @@ export function createSmartProxy(varName: string): any {
             // Makes the proxy renderable as a JSX child ({proxy} in JSX).
             // React 19 checks $typeof to decide whether a value is a valid element;
             // we return a Fragment element whose children is the placeholder string.
-            if (prop === '$typeof')     return REACT_ELEMENT_TYPE;
+            if (prop === '$$typeof')     return REACT_ELEMENT_TYPE;
             if (prop === 'type')        return React.Fragment;
             if (prop === 'key')         return null;
             if (prop === 'ref')         return null;
@@ -129,7 +129,7 @@ export function createItemProxy(arrayVarName: string): any {
     const handler: ProxyHandler<Record<string, unknown>> = {
         get(_target, prop) {
             // --- React element interface (same as createSmartProxy) ---
-            if (prop === '$typeof')     return REACT_ELEMENT_TYPE;
+            if (prop === '$$typeof')     return REACT_ELEMENT_TYPE;
             if (prop === 'type')        return React.Fragment;
             if (prop === 'key')         return null;
             if (prop === 'ref')         return null;
