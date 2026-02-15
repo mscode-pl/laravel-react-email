@@ -1,5 +1,10 @@
 import React from 'react';
 
+// React 19 uses Symbol.for('react.transitional.element') as the $typeof marker
+// for valid React elements. Defining it once here avoids recreating the Symbol
+// on every proxy property access.
+const REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element');
+
 /**
  * Creates a smart Proxy for a Blade placeholder variable.
  *
@@ -15,6 +20,21 @@ export function createSmartProxy(varName: string): any {
 
     const handler: ProxyHandler<Record<string, unknown>> = {
         get(_target, prop) {
+            // --- React element interface ---
+            // Makes the proxy renderable as a JSX child ({proxy} in JSX).
+            // React 19 checks $typeof to decide whether a value is a valid element;
+            // we return a Fragment element whose children is the placeholder string.
+            if (prop === '$typeof')     return REACT_ELEMENT_TYPE;
+            if (prop === 'type')        return React.Fragment;
+            if (prop === 'key')         return null;
+            if (prop === 'ref')         return null;
+            if (prop === '_owner')      return null;
+            if (prop === '_store')      return {};
+            if (prop === '_debugInfo')  return null;
+            if (prop === '_debugStack') return null;
+            if (prop === '_debugTask')  return null;
+            if (prop === 'props')       return { children: placeholder };
+
             // --- Primitive coercion ---
             // hint='number'  → 0  (arithmetic like price * qty won't NaN)
             // hint='string' / 'default' → placeholder  (JSX text, string concat)
@@ -33,6 +53,12 @@ export function createSmartProxy(varName: string): any {
             // --- Standard coercions ---
             if (propStr === 'toString') return () => placeholder;
             if (propStr === 'valueOf')  return () => 0;
+
+            // --- String: .split() → split the placeholder string normally ---
+            // Needed for patterns like message.split('\n').map(...)
+            if (propStr === 'split') {
+                return (sep: string) => placeholder.split(sep);
+            }
 
             // --- Array: .map() ---
             // Calls the callback once with an item-proxy, then wraps the result
@@ -102,6 +128,18 @@ export function createItemProxy(arrayVarName: string): any {
 
     const handler: ProxyHandler<Record<string, unknown>> = {
         get(_target, prop) {
+            // --- React element interface (same as createSmartProxy) ---
+            if (prop === '$typeof')     return REACT_ELEMENT_TYPE;
+            if (prop === 'type')        return React.Fragment;
+            if (prop === 'key')         return null;
+            if (prop === 'ref')         return null;
+            if (prop === '_owner')      return null;
+            if (prop === '_store')      return {};
+            if (prop === '_debugInfo')  return null;
+            if (prop === '_debugStack') return null;
+            if (prop === '_debugTask')  return null;
+            if (prop === 'props')       return { children: itemPlaceholder };
+
             if (prop === Symbol.toPrimitive) {
                 return (hint: string) => (hint === 'number' ? 0 : itemPlaceholder);
             }
