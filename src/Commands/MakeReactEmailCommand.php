@@ -32,27 +32,6 @@ class MakeReactEmailCommand extends GeneratorCommand
         ];
     }
 
-    protected function buildClass($name): string
-    {
-        $replace = $this->buildReplacements();
-
-        return str_replace(
-            array_keys($replace),
-            array_values($replace),
-            parent::buildClass($name)
-        );
-    }
-
-    protected function buildReplacements(): array
-    {
-        $name = Str::kebab($this->argument('name'));
-
-        return [
-            '{{ view }}' => "react-email.$name",
-            '{{ text }}' => "react-email.$name-text",
-        ];
-    }
-
     public function handle(): bool|null
     {
         if (parent::handle() === false) {

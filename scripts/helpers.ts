@@ -225,5 +225,14 @@ export const blade = Object.assign(
          * Use when you only need string interpolation, not method calls.
          */
         string: (varName: string): string => `$$${varName}$$` as unknown as string,
+
+        /**
+         * Returns a raw `$$raw:varName$$` placeholder typed as `any`.
+         * Compiles to `{!! $varName !!}` in Blade — use for pre-rendered HTML
+         * content (CMS output, markdown-rendered text) that must NOT be escaped.
+         *
+         * WARNING: Only use with trusted content. Raw output skips HTML escaping.
+         */
+        raw: (varName: string): any => `$$raw:${varName}$$` as any,
     },
 );

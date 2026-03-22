@@ -2,7 +2,6 @@ namespace {{ namespace }};
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use MsCodePL\LaravelReactEmail\ReactMailable;
@@ -26,17 +25,6 @@ class {{ class }} extends ReactMailable implements ShouldQueue
     {
         return new Envelope(
             subject: '{{ class }} Subject',
-        );
-    }
-
-    /**
-     * Get the message content definition.
-     */
-    public function content(): Content
-    {
-        return new Content(
-            html: '{{ view }}',
-            text: '{{ text }}',
         );
     }
 

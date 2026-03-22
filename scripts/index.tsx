@@ -7,7 +7,23 @@
  *   import { BladeForEach, BladeIf, blade } from '@mscode-pl/laravel-react-email';
  */
 
-export { BladeForEach, BladeIf } from './blade-components';
-export type { BladeForEachProps, BladeIfProps } from './blade-components';
+export {
+    BladeForEach,
+    BladeForElse,
+    BladeEmpty,
+    BladeIf,
+    BladeElseIf,
+    BladeElse,
+    BladeComponent,
+    BladeSlot,
+} from './blade-components';
+export type {
+    BladeForEachProps,
+    BladeForElseProps,
+    BladeIfProps,
+    BladeElseIfProps,
+    BladeComponentProps,
+    BladeSlotProps,
+} from './blade-components';
 
 export { blade, createSmartProxy, createItemProxy } from './helpers';
