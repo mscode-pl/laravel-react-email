@@ -6,12 +6,12 @@
 </p>
 
 <p align="center">
-  <a href="https://packagist.org/packages/mscode-pl/laravel-react-email"><img src="https://img.shields.io/packagist/v/mscode-pl/laravel-react-email?style=flat-square&color=1A5BB5" alt="Latest Version"></a>
-  <a href="https://packagist.org/packages/mscode-pl/laravel-react-email"><img src="https://img.shields.io/packagist/dt/mscode-pl/laravel-react-email?style=flat-square&color=1A5BB5" alt="Downloads"></a>
-  <a href="https://github.com/mscode-pl/laravel-react-email/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/mscode-pl/laravel-react-email/test.yml?branch=master&style=flat-square&label=tests" alt="Tests"></a>
-  <img src="https://img.shields.io/badge/php-8.1%20to%208.5-777BB4?style=flat-square" alt="PHP 8.1 to 8.5">
-  <img src="https://img.shields.io/badge/laravel-10%20to%2013-FF2D20?style=flat-square" alt="Laravel 10 to 13">
-  <a href="LICENSE"><img src="https://img.shields.io/packagist/l/mscode-pl/laravel-react-email?style=flat-square" alt="License"></a>
+  <a href="https://packagist.org/packages/mscode-pl/laravel-react-email"><img src="https://badges.mscode.pl/packagist/v/mscode-pl/laravel-react-email" alt="Latest Version"></a>
+  <a href="https://packagist.org/packages/mscode-pl/laravel-react-email"><img src="https://badges.mscode.pl/packagist/dt/mscode-pl/laravel-react-email" alt="Downloads"></a>
+  <a href="https://github.com/mscode-pl/laravel-react-email/actions/workflows/test.yml"><img src="https://badges.mscode.pl/github/actions/mscode-pl/laravel-react-email/test.yml?branch=master&label=tests" alt="Tests"></a>
+  <img src="https://badges.mscode.pl/badge/php/8.1_to_8.5/777BB4?icon=php" alt="PHP 8.1 to 8.5">
+  <img src="https://badges.mscode.pl/badge/laravel/10_to_13/FF2D20?icon=laravel" alt="Laravel 10 to 13">
+  <a href="LICENSE"><img src="https://badges.mscode.pl/packagist/l/mscode-pl/laravel-react-email" alt="License"></a>
 </p>
 
 <p align="center">
