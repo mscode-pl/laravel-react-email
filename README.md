@@ -1,10 +1,31 @@
-# Laravel React Email
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/banner-dark.svg">
+    <img src=".github/banner-light.svg" alt="Laravel React Email" width="100%">
+  </picture>
+</p>
 
-Build Laravel email templates using [react-email](https://react.email) components.
-Variables from your Mailable are injected at send time by Laravel Blade, so nothing is hardcoded into the HTML.
+<p align="center">
+  <a href="https://packagist.org/packages/mscode-pl/laravel-react-email"><img src="https://img.shields.io/packagist/v/mscode-pl/laravel-react-email?style=flat-square&color=1A5BB5" alt="Latest Version"></a>
+  <a href="https://packagist.org/packages/mscode-pl/laravel-react-email"><img src="https://img.shields.io/packagist/dt/mscode-pl/laravel-react-email?style=flat-square&color=1A5BB5" alt="Downloads"></a>
+  <a href="https://github.com/mscode-pl/laravel-react-email/actions/workflows/test.yml"><img src="https://img.shields.io/github/actions/workflow/status/mscode-pl/laravel-react-email/test.yml?branch=master&style=flat-square&label=tests" alt="Tests"></a>
+  <img src="https://img.shields.io/badge/php-8.1%20to%208.5-777BB4?style=flat-square" alt="PHP 8.1 to 8.5">
+  <img src="https://img.shields.io/badge/laravel-10%20to%2013-FF2D20?style=flat-square" alt="Laravel 10 to 13">
+  <a href="LICENSE"><img src="https://img.shields.io/packagist/l/mscode-pl/laravel-react-email?style=flat-square" alt="License"></a>
+</p>
 
-[![Latest Version](https://img.shields.io/packagist/v/mscode-pl/laravel-react-email)](https://packagist.org/packages/mscode-pl/laravel-react-email)
-[![License](https://img.shields.io/packagist/l/mscode-pl/laravel-react-email)](LICENSE)
+<p align="center">
+  Build Laravel email templates with <a href="https://react.email">react-email</a> components.<br>
+  Blade fills in the variables from your Mailable at send time, so nothing is hardcoded into the HTML.
+</p>
+
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#variables">Variables</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#configuration">Configuration</a>
+</p>
 
 ---
 
@@ -465,3 +486,24 @@ return [
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+---
+
+<p align="center">
+  <a href="https://mscode.pl">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/mscode-logo-white.svg">
+      <img src=".github/mscode-logo-black.svg" alt="MSCode" height="28">
+    </picture>
+  </a>
+</p>
+
+<p align="center">
+  Built and maintained by <a href="https://mscode.pl">MSCode</a>, a Polish software house that makes websites and web and mobile apps.
+</p>
+
+<p align="center">
+  <a href="https://mscode.pl">mscode.pl</a> ·
+  <a href="https://github.com/mscode-pl">More packages</a> ·
+  <a href="https://github.com/mscode-pl/laravel-react-email/issues">Report an issue</a>
+</p>
