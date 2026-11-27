@@ -8,21 +8,26 @@
   "exports": {
     ".": "./scripts/index.tsx"
   },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "react-email dev",
-    "build": "tsx scripts/react-email-renderer.tsx"
+    "build": "tsx scripts/react-email-renderer.tsx",
+    "typecheck": "tsc"
   },
   "dependencies": {
-    "@react-email/components": "^1.0.1",
-    "@react-email/render": "^1.4.0",
-    "react": "^19.2.1"
+    "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.3.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
-    "@types/react": "^19.2.7",
-    "react-email": "^5.0.5",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "prettier": "^3.7.4"
+    "@types/node": "^24.19.4",
+    "@types/react": "^19.3.3",
+    "prettier": "^3.10.1",
+    "react-email": "^6.11.16",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   }
 }
