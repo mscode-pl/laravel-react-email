@@ -1,7 +1,7 @@
 # Laravel React Email
 
 Build Laravel email templates using [react-email](https://react.email) components.
-Variables from your Mailable are injected at send-time via Laravel Blade — no static strings hardcoded into HTML.
+Variables from your Mailable are injected at send time by Laravel Blade, so nothing is hardcoded into the HTML.
 
 [![Latest Version](https://img.shields.io/packagist/v/mscode-pl/laravel-react-email)](https://packagist.org/packages/mscode-pl/laravel-react-email)
 [![License](https://img.shields.io/packagist/l/mscode-pl/laravel-react-email)](LICENSE)
@@ -11,11 +11,11 @@ Variables from your Mailable are injected at send-time via Laravel Blade — no 
 ## How it works
 
 ```
-resources/react-email/welcome-email.tsx   ← you write this
-         ↓  php artisan react-email:build
-resources/views/react-email/welcome-email.blade.php   ← generated Blade template
-         ↓  Mail::to($user)->send(new WelcomeEmail(...))
-         email with real data injected by Blade at send-time
+1. You write      resources/react-email/welcome-email.tsx
+2. You run        php artisan react-email:build
+3. It generates   resources/views/react-email/welcome-email.blade.php
+4. You send       Mail::to($user)->send(new WelcomeEmail(...))
+5. Blade fills in the real data at send time
 ```
 
 The build step compiles your TSX to static HTML and replaces placeholder props with Blade expressions:
@@ -69,8 +69,8 @@ Run `npm install` once more to create the symlink:
 npm install
 ```
 
-> **Why?** The package lives in `vendor/` (Composer only, not published to npm).
-> The `file:` reference lets `tsx` resolve `import { blade } from '@mscode-pl/laravel-react-email'` correctly.
+The package is installed by Composer into `vendor/` and is not published to npm.
+The `file:` reference is what lets `tsx` resolve `import { blade } from '@mscode-pl/laravel-react-email'`.
 
 ---
 
@@ -249,7 +249,7 @@ Compiled Blade output:
 
 > Blade handles the actual number formatting at send-time with `number_format($total, 2)` etc.
 
-### Lists / arrays — `<BladeForEach>`
+### Lists and arrays: `<BladeForEach>`
 
 Use the `<BladeForEach>` component to loop over an array. Inside, write `$$item.property$$` placeholders:
 
@@ -262,7 +262,7 @@ export default function OrderEmail() {
             <Text>Your items:</Text>
             <BladeForEach items="items">
                 <Section>
-                    <Text>$$item.name$$ × $$item.quantity$$ — $$item.price$$ PLN</Text>
+                    <Text>$$item.name$$ x $$item.quantity$$: $$item.price$$ PLN</Text>
                 </Section>
             </BladeForEach>
         </Html>
@@ -274,7 +274,7 @@ Compiled Blade output:
 ```blade
 @foreach($items as $item)
     <div>
-        <p>{{ $item['name'] }} × {{ $item['quantity'] }} — {{ $item['price'] }} PLN</p>
+        <p>{{ $item['name'] }} x {{ $item['quantity'] }}: {{ $item['price'] }} PLN</p>
     </div>
 @endforeach
 ```
@@ -283,14 +283,14 @@ For nested arrays (e.g. `order.items`):
 
 ```tsx
 <BladeForEach items="order.items">
-    <Text>$$item.name$$ — $$item.price$$ PLN</Text>
+    <Text>$$item.name$$: $$item.price$$ PLN</Text>
 </BladeForEach>
 ```
 
 Compiles to:
 ```blade
 @foreach($order['items'] as $item)
-    <p>{{ $item['name'] }} — {{ $item['price'] }} PLN</p>
+    <p>{{ $item['name'] }}: {{ $item['price'] }} PLN</p>
 @endforeach
 ```
 
@@ -300,7 +300,7 @@ For nested loops, name the loop variable with `as` so the inner loop doesn't ove
 <BladeForEach items="orders" as="order">
     <Text>Order $$order.number$$</Text>
     <BladeForEach items="order.lines" as="line">
-        <Text>$$line.name$$ × $$line.quantity$$</Text>
+        <Text>$$line.name$$ x $$line.quantity$$</Text>
     </BladeForEach>
 </BladeForEach>
 ```
@@ -310,12 +310,12 @@ Compiles to:
 @foreach($orders as $order)
     <p>Order {{ $order['number'] }}</p>
     @foreach($order['lines'] as $line)
-        <p>{{ $line['name'] }} × {{ $line['quantity'] }}</p>
+        <p>{{ $line['name'] }} x {{ $line['quantity'] }}</p>
     @endforeach
 @endforeach
 ```
 
-### Empty lists — `<BladeForElse>`
+### Empty lists: `<BladeForElse>`
 
 `<BladeForElse>` compiles to `@forelse`. Put the fallback content in `<BladeEmpty>`:
 
@@ -328,7 +328,7 @@ Compiles to:
 </BladeForElse>
 ```
 
-### Conditional sections — `<BladeIf>`
+### Conditional sections: `<BladeIf>`
 
 Use `<BladeIf>` to wrap content that should only appear when a condition is true:
 
@@ -342,7 +342,7 @@ export default function OrderEmail({
     return (
         <Html>
             <BladeForEach items="items">
-                <Text>$$item.name$$ — $$item.price$$ PLN</Text>
+                <Text>$$item.name$$: $$item.price$$ PLN</Text>
             </BladeForEach>
 
             <BladeIf condition="serviceFee > 0">
@@ -358,7 +358,7 @@ export default function OrderEmail({
 Compiled Blade output:
 ```blade
 @foreach($items as $item)
-    <p>{{ $item['name'] }} — {{ $item['price'] }} PLN</p>
+    <p>{{ $item['name'] }}: {{ $item['price'] }} PLN</p>
 @endforeach
 
 @if($serviceFee > 0)
@@ -384,7 +384,7 @@ Use `<BladeElseIf>` and `<BladeElse>` inside `<BladeIf>` for the other branches:
 </BladeIf>
 ```
 
-### Blade components — `<BladeComponent>` and `<BladeSlot>`
+### Blade components: `<BladeComponent>` and `<BladeSlot>`
 
 Render any Blade component, including Laravel's `mail::` components. Props that are placeholders become bound attributes, everything else is passed as a literal:
 
@@ -456,7 +456,7 @@ return [
 
 ## Requirements
 
-- PHP 8.1 – 8.5 (Laravel 13 needs PHP 8.3+)
+- PHP 8.1 to 8.5 (Laravel 13 needs PHP 8.3+)
 - Laravel 10, 11, 12 or 13
 - Node.js 20.19+
 
@@ -464,4 +464,4 @@ return [
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).

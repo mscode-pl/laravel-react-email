@@ -114,11 +114,10 @@ Creates:
 - [ ] Remove `REACT_EMAIL_HOT_RELOAD` from `.env` files
 - [ ] Test sending emails to ensure they work correctly
 
-### Benefits of v2.0
+### What changes for you
 
-1. **Better Performance**: Templates are pre-compiled, no rendering on send
-2. **Faster Email Sending**: No Node.js process spawning during email send
-3. **More Reliable**: Build-time errors instead of runtime errors
-4. **Better DevX**: Live preview server for template development
-5. **Laravel Standard**: Uses standard Blade views like other Laravel emails
+- Templates are compiled ahead of time, so sending an email doesn't start Node.js.
+- Template errors show up at build time instead of when an email is sent.
+- `php artisan react-email:dev` gives you a live preview while you edit.
+- Compiled templates are plain Blade views, like any other Laravel email.
 

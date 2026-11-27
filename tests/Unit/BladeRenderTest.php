@@ -1,14 +1,10 @@
 <?php
 
 /**
- * Tests for the enhanced Blade rendering features:
- *  - numeric placeholder proxies (.toFixed without crash)
- *  - BladeForEach → @foreach directive
- *  - BladeIf → @if directive
- *  - blade.array().map() auto-proxy → @foreach directive
- *  - backward compatibility (plain $$var$$ strings still work)
+ * Blade rendering: numeric proxies, BladeForEach, BladeIf, blade.array().map()
+ * and plain $$var$$ strings.
  *
- * All Node.js-dependent tests are skipped unless Node.js + deps are present.
+ * Tests that need Node.js are skipped when node_modules is not installed.
  */
 
 use MsCodePL\LaravelReactEmail\Services\ReactEmailBuilder;
@@ -78,7 +74,7 @@ TSX;
 })->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
-// Numeric proxy — Priority 1 (CRITICAL)
+// Numeric proxy
 // ---------------------------------------------------------------------------
 
 it('handles numeric placeholder with .toFixed() without crashing', function () {
@@ -129,7 +125,7 @@ TSX;
 })->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
-// BladeForEach component — Priority 2 (CRITICAL)
+// BladeForEach component
 // ---------------------------------------------------------------------------
 
 it('converts BladeForEach component to @foreach Blade directive', function () {
@@ -142,7 +138,7 @@ export default function ForeachEmail() {
   return (
     <Html>
       <BladeForEach items="items">
-        <Text>$$item.name$$ — $$item.price$$ zł</Text>
+        <Text>$$item.name$$: $$item.price$$ zł</Text>
       </BladeForEach>
     </Html>
   );
@@ -185,7 +181,7 @@ TSX;
 })->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
-// BladeIf component — Priority 3 (IMPORTANT)
+// BladeIf component
 // ---------------------------------------------------------------------------
 
 it('converts BladeIf component to @if Blade directive', function () {
@@ -215,7 +211,7 @@ TSX;
 })->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
-// Auto-proxy .map() — Priority 5 (NICE TO HAVE)
+// Auto-proxy .map()
 // ---------------------------------------------------------------------------
 
 it('converts blade.array().map() to @foreach Blade directive', function () {
@@ -230,7 +226,7 @@ export default function AutoForeachEmail({
   return (
     <Html>
       {items.map((item: any) => (
-        <Text key={String(item.id)}>{item.name} — {item.price.toFixed(2)} zł</Text>
+        <Text key={String(item.id)}>{item.name}: {item.price.toFixed(2)} zł</Text>
       ))}
     </Html>
   );
@@ -248,7 +244,7 @@ TSX;
 })->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
-// Combined — order email (real-world scenario)
+// Combined order email
 // ---------------------------------------------------------------------------
 
 it('builds order-email.tsx with all features combined', function () {

@@ -20,20 +20,20 @@ export interface BladeForEachProps {
 /**
  * Renders children inside a Blade @foreach directive.
  *
- * Use $$item.property$$ placeholder strings in children — they become
+ * Use $$item.property$$ placeholder strings in children. They become
  * {{ $item['property'] }} in the compiled Blade output.
  *
  * @example
  * ```tsx
  * <BladeForEach items="order.items">
- *   <Text>$$item.name$$ × $$item.quantity$$ — $$item.price$$ zł</Text>
+ *   <Text>$$item.name$$ x $$item.quantity$$: $$item.price$$ zł</Text>
  * </BladeForEach>
  * ```
  *
  * Compiles to:
  * ```blade
  * @foreach($order['items'] as $item)
- *   <p>{{ $item['name'] }} × {{ $item['quantity'] }} — {{ $item['price'] }} zł</p>
+ *   <p>{{ $item['name'] }} x {{ $item['quantity'] }}: {{ $item['price'] }} zł</p>
  * @endforeach
  * ```
  *
