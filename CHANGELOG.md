@@ -2,6 +2,39 @@
 
 All notable changes to `laravel-react-email` will be documented in this file.
 
+## [2.2.0] - 2026-11-27
+
+### Added
+
+- Support for Laravel 13
+- `BladeForElse`/`BladeEmpty`, `BladeElseIf`/`BladeElse`, `BladeComponent` and `BladeSlot` components
+- `ReactMailable` resolves its views from the class name, so `content()` no longer has to be defined
+- `as` prop on `BladeForEach` and `BladeForElse` to name the loop variable in nested loops
+- `react-email:build` accepts template names to build only those templates
+- `react-email:dev --port` option
+- `.jsx`, `.ts` and `.js` templates are built, not only `.tsx`
+- Changes to shared files in template subdirectories (layouts, components) trigger a rebuild
+
+### Changed
+
+- Updated `@react-email/render` to 2.x, `@react-email/components` to 1.0.12, `react-email` to 6.x and React to 19.3
+- `react-dom` is now a declared dependency, so it always matches the installed `react` version
+- Node.js 20.19+ is required (needed by `@react-email/render` 2.x)
+- `ReactMailable` delegates the stale-view check to `ReactEmailBuilder` and updates the build manifest
+
+### Fixed
+
+- `react-email:build` exits with a non-zero code when a template fails to build
+- `make:react-email` returned exit code 1 on success
+- `make:react-email Orders/ShippedEmail` created `orders/-shipped-email.tsx` with an invalid function name; the template is now `shipped-email.tsx`, matching the view the mailable resolves
+- `BladeIf` conditions with string literals (`plan === 'premium'`) produced invalid PHP
+- Nested `BladeForEach`, `BladeIf` and `BladeForElse` elements were left unconverted in the output
+- `BladeComponent` with props was left unconverted in the output
+- Blade directives placed right after text (`@endif@foreach`) were not compiled by Blade
+- `console.log` in a template broke the build output
+- `react-email:dev` crashed on Windows, where TTY mode is not available
+- CI ran on the wrong branches and never executed the render tests
+
 ## [2.0.2] - 2025-12-07
 
 ### Added

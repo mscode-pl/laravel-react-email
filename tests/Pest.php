@@ -14,3 +14,8 @@
 require __DIR__ . '/TestCase.php';
 
 uses(TestCase::class)->in('Unit');
+
+function nodeDependenciesMissing(): bool
+{
+    return ! is_dir(__DIR__.'/../node_modules/@react-email/render');
+}

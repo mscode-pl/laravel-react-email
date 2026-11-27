@@ -32,45 +32,53 @@ class MakeReactEmailCommand extends GeneratorCommand
         ];
     }
 
-    public function handle(): bool|null
+    public function handle(): int
     {
         if (parent::handle() === false) {
-            return false;
+            return self::FAILURE;
         }
 
-        return $this->createReactEmailTemplate();
+        $this->createReactEmailTemplate();
+
+        return self::SUCCESS;
     }
 
-    protected function createReactEmailTemplate(): bool
+    protected function createReactEmailTemplate(): void
     {
         $templatePath = $this->getTemplatePath();
 
         if (File::exists($templatePath)) {
-            $this->error('React Email template already exists!');
+            $this->components->warn(sprintf('React email template [%s] already exists, skipping.', $templatePath));
 
-            return false;
+            return;
         }
 
         $this->ensureTemplateDirectoryExists();
         $this->createTemplateFromStub($templatePath);
 
         $this->components->info(sprintf('React email template [%s] created successfully.', $templatePath));
-
-        return true;
     }
 
+    /**
+     * Template file for the mailable. Uses the class basename so that
+     * "Orders/ShippedEmail" maps to "shipped-email.tsx", the same view
+     * ReactMailable resolves by default.
+     */
     protected function getTemplatePath(): string
     {
-        $name = Str::kebab($this->argument('name'));
         $templatesPath = config('react-email.path', resource_path('react-email'));
 
-        return $templatesPath.'/'.$name.'.tsx';
+        return $templatesPath.'/'.Str::kebab($this->classBasename()).'.tsx';
+    }
+
+    protected function classBasename(): string
+    {
+        return class_basename(str_replace('/', '\\', trim($this->argument('name'))));
     }
 
     protected function ensureTemplateDirectoryExists(): void
     {
-        $templatesPath = dirname($this->getTemplatePath());
-        File::makeDirectory($templatesPath, 0755, true, true);
+        File::ensureDirectoryExists(dirname($this->getTemplatePath()));
     }
 
     protected function createTemplateFromStub(string $templatePath): void
@@ -78,9 +86,11 @@ class MakeReactEmailCommand extends GeneratorCommand
         $stubPath = __DIR__.'/../../stubs/react-email-template.stub';
         $stub = File::get($stubPath);
 
+        $name = Str::studly($this->classBasename());
+
         $content = str_replace(
             ['{{ functionName }}', '{{ name }}'],
-            [Str::studly($this->argument('name')).'Email', Str::studly($this->argument('name'))],
+            [Str::finish($name, 'Email'), $name],
             $stub
         );
 

@@ -9,6 +9,11 @@ export interface BladeForEachProps {
      * Examples: "items", "order.items"
      */
     items: string;
+    /**
+     * Loop variable name, without the `$`. Defaults to "item".
+     * Set it when nesting loops so the inner loop does not overwrite `$item`.
+     */
+    as?: string;
     children: React.ReactNode;
 }
 
@@ -31,9 +36,19 @@ export interface BladeForEachProps {
  *   <p>{{ $item['name'] }} × {{ $item['quantity'] }} — {{ $item['price'] }} zł</p>
  * @endforeach
  * ```
+ *
+ * Nested loops:
+ * ```tsx
+ * <BladeForEach items="orders" as="order">
+ *   <Text>Order $$order.number$$</Text>
+ *   <BladeForEach items="order.lines" as="line">
+ *     <Text>$$line.name$$</Text>
+ *   </BladeForEach>
+ * </BladeForEach>
+ * ```
  */
-export function BladeForEach({ items, children }: BladeForEachProps): React.ReactElement {
-    return React.createElement('blade-foreach', { 'data-items': items }, children);
+export function BladeForEach({ items, as, children }: BladeForEachProps): React.ReactElement {
+    return React.createElement('blade-foreach', { 'data-items': items, 'data-as': as }, children);
 }
 
 /**
@@ -45,6 +60,11 @@ export interface BladeForElseProps {
      * Examples: "items", "order.items"
      */
     items: string;
+    /**
+     * Loop variable name, without the `$`. Defaults to "item".
+     * Set it when nesting loops so the inner loop does not overwrite `$item`.
+     */
+    as?: string;
     children: React.ReactNode;
 }
 
@@ -73,8 +93,8 @@ export interface BladeForElseProps {
  * @endforelse
  * ```
  */
-export function BladeForElse({ items, children }: BladeForElseProps): React.ReactElement {
-    return React.createElement('blade-forelse', { 'data-items': items }, children);
+export function BladeForElse({ items, as, children }: BladeForElseProps): React.ReactElement {
+    return React.createElement('blade-forelse', { 'data-items': items, 'data-as': as }, children);
 }
 
 /**
