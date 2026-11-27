@@ -2,11 +2,13 @@
 
 All notable changes to `laravel-react-email` will be documented in this file.
 
-## [Unreleased]
+## [2.2.0] - 2026-11-27
 
 ### Added
 
 - Support for Laravel 13
+- `BladeForElse`/`BladeEmpty`, `BladeElseIf`/`BladeElse`, `BladeComponent` and `BladeSlot` components
+- `ReactMailable` resolves its views from the class name, so `content()` no longer has to be defined
 - `as` prop on `BladeForEach` and `BladeForElse` to name the loop variable in nested loops
 - `react-email:build` accepts template names to build only those templates
 - `react-email:dev --port` option
