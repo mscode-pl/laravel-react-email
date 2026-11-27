@@ -4,9 +4,9 @@ namespace MsCodePL\LaravelReactEmail;
 
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use MsCodePL\LaravelReactEmail\Services\ReactEmailBuilder;
+use RuntimeException;
 
 abstract class ReactMailable extends Mailable
 {
@@ -58,17 +58,16 @@ abstract class ReactMailable extends Mailable
      */
     private function autoBuildIfNeeded(string $view): void
     {
-        $buildPath  = config('react-email.build_path');
-        $sourcePath = config('react-email.path');
-        $bladePath  = "{$buildPath}/{$view}.blade.php";
-        $tsxPath    = "{$sourcePath}/{$view}.tsx";
+        $builder = app(ReactEmailBuilder::class);
 
-        $isMissing = ! File::exists($bladePath);
-        $isStale   = File::exists($tsxPath) && File::exists($bladePath)
-            && File::lastModified($tsxPath) > File::lastModified($bladePath);
+        if (! $builder->isStale($view)) {
+            return;
+        }
 
-        if (File::exists($tsxPath) && ($isMissing || $isStale)) {
-            app(ReactEmailBuilder::class)->buildTemplate($view);
+        $result = $builder->buildAllBatch([$view]);
+
+        if (! empty($result['errors'])) {
+            throw new RuntimeException($result['errors'][0]);
         }
     }
 }

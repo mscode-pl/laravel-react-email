@@ -2,28 +2,25 @@
 
 namespace MsCodePL\LaravelReactEmail\Commands;
 
-use Exception;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 use MsCodePL\LaravelReactEmail\Services\ReactEmailBuilder;
+use Throwable;
 
 class BuildReactEmailsCommand extends Command
 {
     protected $signature = 'react-email:build
+                            {templates?* : Template names to build (defaults to all)}
                             {--force : Force rebuild all templates, ignoring the change manifest}
-                            {--clean : Remove compiled files for templates whose TSX source was deleted}';
+                            {--clean : Remove compiled files for templates whose source was deleted}';
 
     protected $description = 'Build React Email templates to Blade views';
 
-    protected ReactEmailBuilder $builder;
-
-    public function __construct(ReactEmailBuilder $builder)
+    public function __construct(protected ReactEmailBuilder $builder)
     {
         parent::__construct();
-        $this->builder = $builder;
     }
 
-    public function handle(): void
+    public function handle(): int
     {
         $this->info('Building React Email templates...');
 
@@ -31,17 +28,25 @@ class BuildReactEmailsCommand extends Command
             $this->handleClean();
         }
 
-        $templates = $this->getTemplates();
+        $templates = $this->argument('templates') ?: $this->builder->templateNames();
 
         if (empty($templates)) {
             $this->info('The email templates directory is empty. Nothing to build.');
 
-            return;
+            return self::SUCCESS;
         }
 
-        $results = $this->buildTemplates($templates);
+        try {
+            $results = $this->option('force')
+                ? $this->builder->buildAllBatch($templates)
+                : $this->builder->buildChangedBatch($templates);
+        } catch (Throwable $e) {
+            $results = ['built' => [], 'skipped' => [], 'errors' => [$e->getMessage()]];
+        }
 
         $this->displayResults($results);
+
+        return empty($results['errors']) ? self::SUCCESS : self::FAILURE;
     }
 
     protected function handleClean(): void
@@ -50,46 +55,15 @@ class BuildReactEmailsCommand extends Command
 
         if (empty($removed)) {
             $this->line('No orphaned templates found.');
-        } else {
-            $this->info('Removed compiled files for deleted templates:');
-            foreach ($removed as $name) {
-                $this->line("  - $name");
-            }
-        }
-    }
 
-    protected function getTemplates(): array
-    {
-        $templatePath = $this->builder->getTemplatePath();
-
-        File::makeDirectory($templatePath, 0755, true, true);
-
-        return File::files($templatePath);
-    }
-
-    protected function buildTemplates(array $templates): array
-    {
-        $names = array_map(
-            fn ($t) => $t->getFilenameWithoutExtension(),
-            array_filter($templates, fn ($t) => $this->isValidTemplate($t)),
-        );
-
-        if (empty($names)) {
-            return ['built' => [], 'skipped' => [], 'errors' => []];
+            return;
         }
 
-        try {
-            return $this->option('force')
-                ? $this->builder->buildAllBatch($names)
-                : $this->builder->buildChangedBatch($names);
-        } catch (Exception $e) {
-            return ['built' => [], 'skipped' => [], 'errors' => [$e->getMessage()]];
-        }
-    }
+        $this->info('Removed compiled files for deleted templates:');
 
-    protected function isValidTemplate($template): bool
-    {
-        return in_array($template->getExtension(), ['tsx', 'ts', 'jsx', 'js']);
+        foreach ($removed as $name) {
+            $this->line("  - $name");
+        }
     }
 
     protected function displayResults(array $results): void
@@ -109,11 +83,11 @@ class BuildReactEmailsCommand extends Command
         }
 
         if (! empty($results['errors'])) {
-            $this->error("\nEncountered errors while building some templates:");
+            $this->newLine();
+            $this->error('Encountered errors while building some templates:');
             foreach ($results['errors'] as $error) {
                 $this->error("  - $error");
             }
         }
     }
 }
-
