@@ -49,7 +49,7 @@ php artisan vendor:publish --provider="MsCodePL\LaravelReactEmail\LaravelReactEm
 Install react-email and link the library from your vendor directory so TSX templates can import its helpers:
 
 ```bash
-npm install react react-email @react-email/components tsx
+npm install react react-dom react-email @react-email/components tsx
 ```
 
 Then add to your project's `package.json`:
@@ -57,7 +57,7 @@ Then add to your project's `package.json`:
 ```json
 {
   "dependencies": {
-    "@react-email/components": "^1.0.1",
+    "@react-email/components": "^1.0.12",
     "@mscode-pl/laravel-react-email": "file:vendor/mscode-pl/laravel-react-email"
   }
 }
@@ -131,7 +131,7 @@ php artisan react-email:build
 
 ```php
 use MsCodePL\LaravelReactEmail\ReactMailable;
-use Illuminate\Mail\Mailables\{Content, Envelope};
+use Illuminate\Mail\Mailables\Envelope;
 
 class WelcomeEmail extends ReactMailable
 {
@@ -144,16 +144,19 @@ class WelcomeEmail extends ReactMailable
     {
         return new Envelope(subject: 'Welcome!');
     }
-
-    public function content(): Content
-    {
-        return new Content(
-            html: 'react-email.welcome-email',
-            text: 'react-email.welcome-email-text',
-        );
-    }
 }
 ```
+
+`ReactMailable` picks the views from the class name: `WelcomeEmail` uses `react-email.welcome-email` (HTML) and `react-email.welcome-email-text` (plain text). To use a different template, override `reactEmailView()`:
+
+```php
+protected function reactEmailView(): string
+{
+    return 'account-activation';
+}
+```
+
+In the `local` environment the template is rebuilt automatically when the compiled view is missing or older than the `.tsx` file, so you don't have to run the build command after every edit.
 
 ```php
 Mail::to($user)->send(
@@ -291,6 +294,40 @@ Compiles to:
 @endforeach
 ```
 
+For nested loops, name the loop variable with `as` so the inner loop doesn't overwrite `$item`:
+
+```tsx
+<BladeForEach items="orders" as="order">
+    <Text>Order $$order.number$$</Text>
+    <BladeForEach items="order.lines" as="line">
+        <Text>$$line.name$$ × $$line.quantity$$</Text>
+    </BladeForEach>
+</BladeForEach>
+```
+
+Compiles to:
+```blade
+@foreach($orders as $order)
+    <p>Order {{ $order['number'] }}</p>
+    @foreach($order['lines'] as $line)
+        <p>{{ $line['name'] }} × {{ $line['quantity'] }}</p>
+    @endforeach
+@endforeach
+```
+
+### Empty lists — `<BladeForElse>`
+
+`<BladeForElse>` compiles to `@forelse`. Put the fallback content in `<BladeEmpty>`:
+
+```tsx
+<BladeForElse items="notifications">
+    <Text>$$item.message$$</Text>
+    <BladeEmpty>
+        <Text>You have no notifications.</Text>
+    </BladeEmpty>
+</BladeForElse>
+```
+
 ### Conditional sections — `<BladeIf>`
 
 Use `<BladeIf>` to wrap content that should only appear when a condition is true:
@@ -331,6 +368,46 @@ Compiled Blade output:
 <p>Total: {{ $total }} PLN</p>
 ```
 
+Variable names in conditions get a `$` prefix and dot paths become array access. String literals, function calls and keywords are left alone, so `plan === 'premium' && count(seats) > 1` compiles to `$plan === 'premium' && count($seats) > 1`.
+
+Use `<BladeElseIf>` and `<BladeElse>` inside `<BladeIf>` for the other branches:
+
+```tsx
+<BladeIf condition="plan === 'premium'">
+    <Text>Thanks for being a Premium member.</Text>
+    <BladeElseIf condition="plan === 'pro'">
+        <Text>Thanks for being a Pro member.</Text>
+    </BladeElseIf>
+    <BladeElse>
+        <Text>Upgrade to get more features.</Text>
+    </BladeElse>
+</BladeIf>
+```
+
+### Blade components — `<BladeComponent>` and `<BladeSlot>`
+
+Render any Blade component, including Laravel's `mail::` components. Props that are placeholders become bound attributes, everything else is passed as a literal:
+
+```tsx
+<BladeComponent name="mail::button" url={blade.string('url')} color="success">
+    <BladeSlot name="title">Confirm your email</BladeSlot>
+    Confirm
+</BladeComponent>
+```
+
+Compiles to:
+```blade
+<x-mail::button :url="$url" color="success"><x-slot:title>Confirm your email</x-slot:title>Confirm</x-mail::button>
+```
+
+### Unescaped HTML
+
+`blade.raw('content')` compiles to `{!! $content !!}`. Use it only for HTML you trust, such as content rendered by your own CMS.
+
+### Shared components
+
+Files in subdirectories of `resources/react-email` (for example `components/Layout.tsx`) are treated as shared code, not as templates. When any of them changes, the next `react-email:build` rebuilds every template.
+
 ---
 
 ## blade() helper reference
@@ -342,6 +419,7 @@ Compiled Blade output:
 | `blade.number('name')` | `number` | `.toFixed()`, arithmetic |
 | `blade.array<T>('name')` | `T[]` | `.map()`, `.filter()`, `.reduce()` |
 | `blade.object<T>('name')` | `T` | nested property access |
+| `blade.raw('name')` | `any` | trusted HTML, compiles to `{!! $name !!}` |
 
 ---
 
@@ -350,8 +428,13 @@ Compiled Blade output:
 | Command | Description |
 |---|---|
 | `php artisan make:react-email <Name>` | Generate Mailable + TSX template |
-| `php artisan react-email:build` | Compile all templates to Blade views |
-| `php artisan react-email:dev` | Start live-preview server at `localhost:3000` |
+| `php artisan react-email:build` | Compile changed templates to Blade views |
+| `php artisan react-email:build welcome-email` | Compile only the given templates |
+| `php artisan react-email:build --force` | Recompile everything, ignoring the change manifest |
+| `php artisan react-email:build --clean` | Also remove compiled views whose source was deleted |
+| `php artisan react-email:dev` | Start live-preview server at `localhost:3000` (`--port` to change) |
+
+`react-email:build` exits with a non-zero code when any template fails, so a broken template stops your deploy instead of reaching production.
 
 ---
 
@@ -373,9 +456,9 @@ return [
 
 ## Requirements
 
-- PHP 8.1 – 8.5
-- Laravel 10, 11 or 12
-- Node.js 16+
+- PHP 8.1 – 8.5 (Laravel 13 needs PHP 8.3+)
+- Laravel 10, 11, 12 or 13
+- Node.js 20.19+
 
 ---
 
