@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from '@react-email/render';
 import path from 'path';
 import fs from 'fs';
+import { pathToFileURL } from 'url';
 import { createSmartProxy } from './helpers';
 
 // ---------------------------------------------------------------------------
@@ -14,13 +15,8 @@ import { createSmartProxy } from './helpers';
  *   "order.total"  → "$order['total']"
  */
 function varToBlade(varName: string): string {
-    if (varName.includes('.')) {
-        const parts = varName.split('.');
-        const base  = parts[0];
-        const rest  = parts.slice(1).map(part => `['${part}']`).join('');
-        return `$${base}${rest}`;
-    }
-    return `$${varName}`;
+    const [base, ...rest] = varName.split('.');
+    return `$${base}${rest.map(part => `['${part}']`).join('')}`;
 }
 
 /**
@@ -31,29 +27,55 @@ function convertToBlade(variable: string): string {
 }
 
 /**
+ * Decodes the HTML entities React and the pretty-printer emit in text and
+ * attribute values (named, decimal and hex forms).
+ */
+function decodeEntities(value: string): string {
+    return value
+        .replace(/&#x([0-9a-f]+);/gi, (_m, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
+        .replace(/&#(\d+);/g, (_m, dec: string) => String.fromCodePoint(parseInt(dec, 10)))
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&');
+}
+
+const CONDITION_KEYWORDS = new Set([
+    'true', 'false', 'null', 'and', 'or', 'xor', 'not', 'instanceof', 'new',
+    'isset', 'empty', 'count',
+]);
+
+/**
  * Converts a condition string (used in BladeIf) to Blade syntax.
- * Standalone identifiers and dot-paths are prefixed with `$`.
+ * Standalone identifiers and dot-paths are prefixed with `$`; string literals,
+ * function calls, keywords and already-prefixed variables are left untouched.
  *
- *   "serviceFee > 0"        → "$serviceFee > 0"
- *   "order.total >= 100"    → "$order['total'] >= 100"
+ *   "serviceFee > 0"            → "$serviceFee > 0"
+ *   "order.total >= 100"        → "$order['total'] >= 100"
+ *   "status === 'premium'"      → "$status === 'premium'"
+ *   "count(items) > 0"          → "count($items) > 0"
  */
 function convertConditionToBlade(condition: string): string {
-    const keywords = new Set(['true', 'false', 'null', 'and', 'or', 'not', 'isset', 'empty', 'count']);
-    // Unescape HTML entities that React may have encoded in attributes
-    const raw = condition
-        .replace(/&amp;/g,  '&')
-        .replace(/&lt;/g,   '<')
-        .replace(/&gt;/g,   '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g,  "'");
+    const token = /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(\$|->|::)?\b([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\b(\s*\()?/g;
 
-    return raw.replace(
-        /\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b/g,
-        (match) => {
-            if (keywords.has(match.toLowerCase())) return match;
-            return varToBlade(match);
+    return decodeEntities(condition).replace(
+        token,
+        (match, literal?: string, prefix?: string, identifier?: string, call?: string) => {
+            if (literal || prefix || call || !identifier) return match;
+            if (CONDITION_KEYWORDS.has(identifier.toLowerCase())) return match;
+            return varToBlade(identifier);
         },
     );
+}
+
+/**
+ * Returns a loop variable name for `@foreach(... as $name)`, falling back to
+ * `item` when the given value is not a valid PHP identifier.
+ */
+function loopVariable(name: string | undefined): string {
+    return name && /^[a-zA-Z_]\w*$/.test(name) ? name : 'item';
 }
 
 // ---------------------------------------------------------------------------
@@ -70,15 +92,11 @@ function convertConditionToBlade(condition: string): string {
  * price.toFixed(2) or items.map(...) don't crash at build time.
  */
 function extractPlaceholderProps(source: string): Map<string, string> {
-    // Match: identifier = '$$var$$'  or  identifier = "$$var$$"
-    // optionally followed by type assertions: as any, as unknown as number, etc.
     const pattern = /(\w+)\s*=\s*['"](\$\$[\w.]+\$\$)['"]/g;
-    const props    = new Map<string, string>();
+    const props   = new Map<string, string>();
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(source)) !== null) {
-        const propName = match[1];
-        const varName  = match[2].slice(2, -2); // strip leading and trailing $$
-        props.set(propName, varName);
+        props.set(match[1], match[2].slice(2, -2));
     }
     return props;
 }
@@ -87,138 +105,147 @@ function extractPlaceholderProps(source: string): Map<string, string> {
 // Post-processing: convert custom blade-* elements to Blade directives
 // ---------------------------------------------------------------------------
 
+type Attributes = Record<string, string>;
+
 /**
- * Post-processes rendered HTML/plain-text, converting:
+ * Parses the attribute string of an opening tag. Handles both quote styles,
+ * since the pretty-printer switches to single quotes when a value contains `"`.
+ */
+function parseAttributes(source: string): Attributes {
+    const attrs: Attributes = {};
+    const pattern = /([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(source)) !== null) {
+        attrs[match[1]] = decodeEntities(match[2] ?? match[3] ?? '');
+    }
+    return attrs;
+}
+
+/**
+ * Replaces every `<tag …>…</tag>` element, innermost first, so nested elements
+ * of the same type (a loop inside a loop, an if inside an if) are converted
+ * correctly instead of being cut at the first closing tag.
+ */
+function transformElements(
+    html: string,
+    tag: string,
+    replacer: (attrs: Attributes, content: string) => string,
+): string {
+    const pattern = new RegExp(
+        `<${tag}(?=[\\s>/])([^>]*)>((?:(?!<${tag}[\\s>/])[\\s\\S])*?)<\\/${tag}\\s*>`,
+        'g',
+    );
+
+    let previous: string;
+    do {
+        previous = html;
+        html = html.replace(pattern, (_match, attrs: string, content: string) =>
+            replacer(parseAttributes(attrs), content),
+        );
+    } while (html !== previous);
+
+    return html;
+}
+
+/**
+ * Blade only compiles a directive when it is not preceded by a word character,
+ * so every directive is emitted on its own line.
+ */
+function directive(open: string, body: string, close: string): string {
+    return `\n${open}\n${body.trim()}\n${close}\n`;
+}
+
+function bladeComponentAttribute(key: string, value: unknown): string {
+    const str   = String(value);
+    const bound = str.match(/^\$\$([\w.]+)\$\$$/);
+    if (bound) return `:${key}="${varToBlade(bound[1])}"`;
+
+    const quote = str.includes('"') ? "'" : '"';
+    return `${key}=${quote}${str}${quote}`;
+}
+
+/**
+ * Post-processes rendered HTML, converting the custom elements emitted by the
+ * Blade* components and smart proxies into Blade syntax:
  *
- *  1. <blade-foreach-auto data-items="X">…</blade-foreach-auto>
- *     → @foreach(bladeVar(X) as $item) … @endforeach
- *     (also rewrites $$X__ITEM__.prop$$ → {{ $item['prop'] }} inside)
- *
- *  2. <blade-foreach data-items="X">…</blade-foreach>
- *     → @foreach(bladeVar(X) as $item) … @endforeach
- *     (content already uses $$item.prop$$ which the global regex handles)
- *
- *  3. <blade-if data-condition="X">…</blade-if>
- *     → @if(bladeCondition(X)) … @endif
+ *  <blade-slot>          → <x-slot:name>
+ *  <blade-component>     → <x-name :prop="$var" prop="literal">
+ *  <blade-foreach-auto>  → @foreach … @endforeach  (from proxy .map())
+ *  <blade-forelse>       → @forelse … @empty … @endforelse
+ *  <blade-foreach>       → @foreach … @endforeach
+ *  <blade-if>            → @if … @elseif … @else … @endif
  *
  * Must run BEFORE the global $$var$$ → {{ $var }} substitution.
  */
 function postProcessBlade(html: string): string {
-    // ---- 0a. blade-slot (from BladeSlot component) ----
-    // Must run before blade-component so slots are already converted when the
-    // outer component content is written out.
-    html = html.replace(
-        /<blade-slot[\s\S]*?data-name="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-slot\s*>/g,
-        (_match, name: string, content: string) =>
-            `<x-slot:${name}>${content}</x-slot:${name}>`,
+    html = transformElements(html, 'blade-slot', (attrs, content) =>
+        `<x-slot:${attrs['data-name']}>${content}</x-slot:${attrs['data-name']}>`,
     );
 
-    // ---- 0b. blade-component (from BladeComponent component) ----
-    html = html.replace(
-        /<blade-component[\s\S]*?data-name="([^"]+)"[\s\S]*?data-props="([^"]*)"[\s\S]*?>([\s\S]*?)<\/blade-component\s*>/g,
-        (_match, name: string, propsEncoded: string, content: string) => {
-            // data-props is JSON, but HTML-attribute-encoded (quotes escaped as &quot;)
-            const propsJson = propsEncoded.replace(/&quot;/g, '"');
-            let props: Record<string, unknown> = {};
-            try { props = JSON.parse(propsJson); } catch { /* ignore malformed */ }
+    html = transformElements(html, 'blade-component', (attrs, content) => {
+        let props: Record<string, unknown> = {};
+        try {
+            props = JSON.parse(attrs['data-props'] || '{}');
+        } catch {
+            props = {};
+        }
 
-            const attrs = Object.entries(props)
-                .map(([key, val]) => {
-                    const str = String(val);
-                    // $$varName$$ placeholder → :key="$varName"
-                    const match = str.match(/^\$\$([\w.]+)\$\$$/);
-                    if (match) return `:${key}="${varToBlade(match[1])}"`;
-                    return `${key}="${str}"`;
-                })
-                .join(' ');
+        const name     = attrs['data-name'];
+        const attrList = Object.entries(props).map(([key, val]) => bladeComponentAttribute(key, val));
+        const attrStr  = attrList.length ? ` ${attrList.join(' ')}` : '';
 
-            const attrStr = attrs ? ` ${attrs}` : '';
-            return content.trim()
-                ? `<x-${name}${attrStr}>${content}</x-${name}>`
-                : `<x-${name}${attrStr} />`;
-        },
-    );
+        return content.trim()
+            ? `<x-${name}${attrStr}>${content}</x-${name}>`
+            : `<x-${name}${attrStr} />`;
+    });
 
-    // ---- 1. blade-foreach-auto (from smart-proxy .map()) ----
-    // These contain $$arrayName__ITEM__.prop$$ markers that need special handling.
-    html = html.replace(
-        /<blade-foreach-auto[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-foreach-auto\s*>/g,
-        (_match, items: string, content: string) => {
-            const foreachVar = varToBlade(items);
+    html = transformElements(html, 'blade-foreach-auto', (attrs, content) => {
+        const inner = content
+            .replace(/\$\$[\w.]+__ITEM__\.([\w.]+)\$\$/g, (_m, propPath: string) =>
+                `{{ $item${propPath.split('.').map(p => `['${p}']`).join('')} }}`,
+            )
+            .replace(/\$\$[\w.]+__ITEM__\$\$/g, '{{ $item }}');
 
-            // $$X__ITEM__.prop.sub$$ → {{ $item['prop']['sub'] }}
-            let inner = content.replace(
-                /\$\$[\w.]+__ITEM__\.([\w.]+)\$\$/g,
-                (_m: string, propPath: string) => {
-                    const parts = propPath.split('.');
-                    const access = parts.map((p: string) => `['${p}']`).join('');
-                    return `{{ $item${access} }}`;
-                },
-            );
+        return directive(`@foreach(${varToBlade(attrs['data-items'])} as $item)`, inner, '@endforeach');
+    });
 
-            // $$X__ITEM__$$ (bare item reference) → {{ $item }}
-            inner = inner.replace(/\$\$[\w.]+__ITEM__\$\$/g, '{{ $item }}');
+    html = transformElements(html, 'blade-forelse', (attrs, content) => {
+        let emptyContent = '';
+        const loopContent = transformElements(content, 'blade-empty', (_attrs, inner) => {
+            emptyContent = inner;
+            return '';
+        });
 
-            return `@foreach(${foreachVar} as $item)\n${inner}\n@endforeach`;
-        },
-    );
+        const as = loopVariable(attrs['data-as']);
+        return `\n@forelse(${varToBlade(attrs['data-items'])} as $${as})\n${loopContent.trim()}\n@empty\n${emptyContent.trim()}\n@endforelse\n`;
+    });
 
-    // ---- 2. blade-forelse (from BladeForElse component) ----
-    // Must run before blade-foreach so the more-specific element is matched first.
-    html = html.replace(
-        /<blade-forelse[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-forelse\s*>/g,
-        (_match, items: string, content: string) => {
-            const foreachVar = varToBlade(items);
-            let emptyContent = '';
+    html = transformElements(html, 'blade-foreach', (attrs, content) => {
+        const as = loopVariable(attrs['data-as']);
+        return directive(`@foreach(${varToBlade(attrs['data-items'])} as $${as})`, content, '@endforeach');
+    });
 
-            // Extract <blade-empty>...</blade-empty> from content
-            const loopContent = content.replace(
-                /<blade-empty[\s\S]*?>([\s\S]*?)<\/blade-empty\s*>/g,
-                (_m: string, inner: string) => {
-                    emptyContent = inner;
-                    return '';
-                },
-            );
+    html = transformElements(html, 'blade-if', (attrs, content) => {
+        let processed = transformElements(content, 'blade-elseif', (inner, body) =>
+            `\n@elseif(${convertConditionToBlade(inner['data-condition'] ?? '')})\n${body.trim()}\n`,
+        );
+        processed = transformElements(processed, 'blade-else', (_inner, body) => `\n@else\n${body.trim()}\n`);
 
-            return `@forelse(${foreachVar} as $item)\n${loopContent}\n@empty\n${emptyContent}\n@endforelse`;
-        },
-    );
-
-    // ---- 3. blade-foreach (from BladeForEach component) ----
-
-    html = html.replace(
-        /<blade-foreach[\s\S]*?data-items="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-foreach\s*>/g,
-        (_match, items: string, content: string) => {
-            const foreachVar = varToBlade(items);
-            return `@foreach(${foreachVar} as $item)\n${content}\n@endforeach`;
-        },
-    );
-
-    // ---- 4. blade-if (from BladeIf component) ----
-    // Also handles nested <blade-elseif> and <blade-else> children.
-    html = html.replace(
-        /<blade-if[\s\S]*?data-condition="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-if\s*>/g,
-        (_match, condition: string, content: string) => {
-            const bladeCondition = convertConditionToBlade(condition);
-
-            // Convert <blade-elseif data-condition="...">...</blade-elseif>
-            let processed = content.replace(
-                /<blade-elseif[\s\S]*?data-condition="([^"]+)"[\s\S]*?>([\s\S]*?)<\/blade-elseif\s*>/g,
-                (_m: string, cond: string, inner: string) =>
-                    `@elseif(${convertConditionToBlade(cond)})\n${inner}`,
-            );
-
-            // Convert <blade-else>...</blade-else>
-            processed = processed.replace(
-                /<blade-else[\s\S]*?>([\s\S]*?)<\/blade-else\s*>/g,
-                (_m: string, inner: string) => `@else\n${inner}`,
-            );
-
-            return `@if(${bladeCondition})\n${processed}\n@endif`;
-        },
-    );
+        return directive(`@if(${convertConditionToBlade(attrs['data-condition'] ?? '')})`, processed, '@endif');
+    });
 
     return html;
+}
+
+/**
+ * Replaces the remaining placeholders with Blade echoes:
+ *   $$raw:var$$ → {!! $var !!}
+ *   $$var$$     → {{ $var }}
+ */
+function replacePlaceholders(output: string): string {
+    return output
+        .replace(/\$\$raw:([\w.]+)\$\$/g, (_match, variable: string) => `{!! ${varToBlade(variable)} !!}`)
+        .replace(/\$\$([\w.]+)\$\$/g, (_match, variable: string) => convertToBlade(variable));
 }
 
 // ---------------------------------------------------------------------------
@@ -233,42 +260,27 @@ function postProcessBlade(html: string): string {
  * because that renderer strips all HTML tags — including our custom
  * <blade-foreach*> and <blade-if> elements — before postProcessBlade() gets
  * a chance to convert them to @foreach / @if directives.
- *
- * By deriving plain text from the post-processed HTML instead, Blade directives
- * are already in-place as plain text and survive the tag-stripping step.
  */
 function htmlToPlainText(html: string): string {
-    return html
-        // Remove entire <head>…</head> block (contains <style> and <title>)
-        .replace(/<head[\s\S]*?<\/head>/gi, '')
-        // Remove entire <style>…</style> blocks (CSS content, @font-face, etc.)
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        // Remove entire <script>…</script> blocks
-        .replace(/<script[\s\S]*?<\/script>/gi, '')
-        // Block elements → newlines before stripping
+    const text = html
+        .replace(/<head[\s\S]*?<\/head\s*>/gi, '')
+        .replace(/<style[\s\S]*?<\/style\s*>/gi, '')
+        .replace(/<script[\s\S]*?<\/script\s*>/gi, '')
+        .replace(/<!--[\s\S]*?-->/g, '')
         .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/p>/gi, '\n\n')
-        .replace(/<\/div>/gi, '\n')
-        .replace(/<\/tr>/gi, '\n')
-        .replace(/<\/h[1-6]>/gi, '\n\n')
-        .replace(/<\/li>/gi, '\n')
-        // Strip all remaining HTML tags — Blade directives (@foreach, {{ }})
-        // do NOT contain < or > so they are preserved intact.
-        .replace(/<[^>]+>/g, '')
-        // Decode common HTML entities
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&nbsp;/g, ' ')
-        // Remove zero-width and invisible Unicode characters used as email preview spacers
-        .replace(/[\u200B\u200C\u200D\u200E\u200F\u00AD\uFEFF\u2060\u180E]/g, '')
-        // Collapse runs of spaces/tabs on a single line to one space
+        .replace(/<\/p\s*>/gi, '\n\n')
+        .replace(/<\/div\s*>/gi, '\n')
+        .replace(/<\/tr\s*>/gi, '\n')
+        .replace(/<\/h[1-6]\s*>/gi, '\n\n')
+        .replace(/<\/li\s*>/gi, '\n')
+        // Blade directives (@foreach, {{ }}) contain no < or > and survive this step.
+        .replace(/<(?:[^>"']|"[^"]*"|'[^']*')+>/g, '');
+
+    return decodeEntities(text)
+        // Zero-width and invisible characters used as email preview spacers
+        .replace(/[​‌‍‎‏­﻿⁠᠎͏]/g, '')
         .replace(/[^\S\n]+/g, ' ')
-        // Remove lines that contain only whitespace
-        .replace(/^ +$/gm, '')
-        // Collapse runs of blank lines to at most two
+        .replace(/^ +| +$/gm, '')
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 }
@@ -283,69 +295,34 @@ function htmlToPlainText(html: string): string {
  * failures per-template without killing the whole process.
  */
 async function buildOutput(templatePath: string): Promise<{ html: string; plainText: string }> {
-    const resolvedPath = path.resolve(templatePath);
-
-    const templateUrl = process.platform === 'win32'
-        ? `file:///${resolvedPath.replace(/\\/g, '/')}`
-        : resolvedPath;
-
-    const importedModule = await import(templateUrl);
-    const EmailComponent = importedModule.default || importedModule;
+    const resolvedPath   = path.resolve(templatePath);
+    const importedModule = await import(pathToFileURL(resolvedPath).href);
+    const EmailComponent = importedModule.default?.default ?? importedModule.default ?? importedModule;
 
     if (typeof EmailComponent !== 'function') {
         throw new Error('Default export is not a React component');
     }
 
-    // ---- Build smart props for $$placeholder$$ default prop values ----
     // e.g. price = '$$price$$' as any as number  →  smartProps.price = Proxy
-    const source         = fs.readFileSync(resolvedPath, 'utf-8');
-    const placeholderMap = extractPlaceholderProps(source);
+    const source     = fs.readFileSync(resolvedPath, 'utf-8');
     const smartProps: Record<string, unknown> = {};
-    for (const [propName, varName] of placeholderMap) {
+    for (const [propName, varName] of extractPlaceholderProps(source)) {
         smartProps[propName] = createSmartProxy(varName);
     }
 
-    // ---- Render HTML ----
     const rawHtml = await render(
         React.createElement(EmailComponent as React.FC, smartProps),
         { pretty: true },
     );
 
-    // ---- Post-process Blade directives on HTML ----
-    // Must happen before plain-text derivation so @foreach/@if survive.
+    // Plain text is derived from the post-processed HTML so that @foreach/@if
+    // directives are already plain text before tags are stripped.
     const processedHtml = postProcessBlade(rawHtml);
 
-    // ---- Derive plain text from post-processed HTML ----
-    // Using plainText:true from @react-email/render would strip our custom
-    // <blade-foreach*> / <blade-if> elements before we can process them.
-    // Deriving from processedHtml means all Blade directives are already
-    // present as plain text before the HTML-tag stripping step.
-    const processedPlainText = htmlToPlainText(processedHtml);
-
-    // ---- Replace remaining $$var$$ → {{ $var }} in both outputs ----
-    // Raw output pass must come FIRST — $$raw:varName$$ → {!! $varName !!}
-    // The standard regex uses [\w.] which excludes ':' so raw markers
-    // would survive untouched, but running raw first is explicit and safe.
-    const html = processedHtml
-        .replace(
-            /\$\$raw:([\w.]+)\$\$/g,
-            (_match, variable: string) => `{!! ${varToBlade(variable)} !!}`,
-        )
-        .replace(
-            /\$\$([\w.]+)\$\$/g,
-            (_match, variable: string) => convertToBlade(variable),
-        );
-    const plainText = processedPlainText
-        .replace(
-            /\$\$raw:([\w.]+)\$\$/g,
-            (_match, variable: string) => `{!! ${varToBlade(variable)} !!}`,
-        )
-        .replace(
-            /\$\$([\w.]+)\$\$/g,
-            (_match, variable: string) => convertToBlade(variable),
-        );
-
-    return { html, plainText };
+    return {
+        html: replacePlaceholders(processedHtml),
+        plainText: replacePlaceholders(htmlToPlainText(processedHtml)),
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -360,6 +337,12 @@ async function buildOutput(templatePath: string): Promise<{ html: string; plainT
         process.exit(1);
     }
 
+    // stdout is reserved for the JSON result read by ReactEmailBuilder, so any
+    // logging done by templates is sent to stderr instead.
+    console.log   = console.error;
+    console.info  = console.error;
+    console.debug = console.error;
+
     type TemplateResult = {
         path: string;
         html: string | null;
@@ -369,7 +352,7 @@ async function buildOutput(templatePath: string): Promise<{ html: string; plainT
 
     const results: TemplateResult[] = [];
 
-    // Process templates sequentially to avoid dynamic-import caching conflicts.
+    // Sequential on purpose: templates share module state (React, proxies).
     for (const templatePath of templatePaths) {
         try {
             const { html, plainText } = await buildOutput(templatePath);
@@ -384,5 +367,5 @@ async function buildOutput(templatePath: string): Promise<{ html: string; plainT
         }
     }
 
-    console.log(JSON.stringify(results));
+    process.stdout.write(JSON.stringify(results));
 })();
