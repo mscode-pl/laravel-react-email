@@ -16,10 +16,8 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    // Clean up test files
-    if (File::exists($this->buildPath)) {
-        File::deleteDirectory($this->buildPath);
-    }
+    File::deleteDirectory($this->buildPath);
+    File::deleteDirectory($this->templatesPath);
 });
 
 it('can extend ReactMailable', function () {
@@ -35,6 +33,48 @@ it('references correct view paths', function () {
 
     expect($content->html)->toBe('react-email.test-email')
         ->and($content->text)->toBe('react-email.test-email-text');
+});
+
+it('resolves views from the class name by default', function () {
+    $content = (new OrderShippedNotification())->content();
+
+    expect($content->html)->toBe('react-email.order-shipped-notification')
+        ->and($content->text)->toBe('react-email.order-shipped-notification-text');
+});
+
+it('builds a stale template when content() is resolved locally', function () {
+    app()->detectEnvironment(fn () => 'local');
+
+    File::put($this->templatesPath.'/order-shipped-notification.tsx', <<<'TSX'
+import React from 'react';
+import { Html, Text } from '@react-email/components';
+
+export default function OrderShipped() {
+  return <Html><Text>Shipped $$orderNumber$$</Text></Html>;
+}
+TSX);
+
+    (new OrderShippedNotification())->content();
+
+    expect(File::get($this->buildPath.'/order-shipped-notification.blade.php'))
+        ->toContain('{{ $orderNumber }}');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
+
+it('creates a mailable and a template named after the class basename', function () {
+    $class = app_path('Mail/Orders/ShippedEmail.php');
+    File::delete($class);
+
+    try {
+        $this->artisan('make:react-email', ['name' => 'Orders/ShippedEmail'])->assertSuccessful();
+
+        $template = $this->templatesPath.'/shipped-email.tsx';
+
+        expect(File::exists($template))->toBeTrue()
+            ->and(File::get($template))->toContain('export default function ShippedEmail(')
+            ->and(File::exists($class))->toBeTrue();
+    } finally {
+        File::deleteDirectory(app_path('Mail'));
+    }
 });
 
 it('can build templates with ReactEmailBuilder', function () {
@@ -60,7 +100,7 @@ TSX;
 
     expect(File::exists($htmlPath))->toBeTrue()
         ->and(File::exists($textPath))->toBeTrue();
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 class TestMailable extends ReactMailable
 {
@@ -81,5 +121,13 @@ class TestMailable extends ReactMailable
             html: 'react-email.test-email',
             text: 'react-email.test-email-text',
         );
+    }
+}
+
+class OrderShippedNotification extends ReactMailable
+{
+    public function envelope(): Envelope
+    {
+        return new Envelope(subject: 'Order shipped');
     }
 }

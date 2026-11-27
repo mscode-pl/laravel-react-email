@@ -46,9 +46,8 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    if (File::exists($this->buildPath)) {
-        File::deleteDirectory($this->buildPath);
-    }
+    File::deleteDirectory($this->buildPath);
+    File::deleteDirectory($this->templatesPath);
 });
 
 // ---------------------------------------------------------------------------
@@ -76,7 +75,7 @@ TSX;
     expect($html)
         ->toContain('{{ $firstName }}')
         ->toContain("{{ \$user['email'] }}");
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
 // Numeric proxy — Priority 1 (CRITICAL)
@@ -100,7 +99,7 @@ TSX;
     $html  = readBuiltHtml($paths);
 
     expect($html)->toContain('{{ $price }}');
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 it('handles blade.number() helper with .toFixed()', function () {
     $tsx = <<<'TSX'
@@ -127,7 +126,7 @@ TSX;
     expect($html)
         ->toContain('{{ $total }}')
         ->toContain('{{ $fee }}');
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
 // BladeForEach component — Priority 2 (CRITICAL)
@@ -158,7 +157,7 @@ TSX;
         ->toContain('@endforeach')
         ->toContain("{{ \$item['name'] }}")
         ->toContain("{{ \$item['price'] }}");
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 it('converts nested BladeForEach (order.items) to correct @foreach', function () {
     $tsx = <<<'TSX'
@@ -183,7 +182,7 @@ TSX;
     expect($html)
         ->toContain("@foreach(\$order['items'] as \$item)")
         ->toContain('@endforeach');
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
 // BladeIf component — Priority 3 (IMPORTANT)
@@ -213,7 +212,7 @@ TSX;
         ->toContain('@if($serviceFee > 0)')
         ->toContain('@endif')
         ->toContain('{{ $serviceFee }}');
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
 // Auto-proxy .map() — Priority 5 (NICE TO HAVE)
@@ -246,7 +245,7 @@ TSX;
         ->toContain('@endforeach')
         ->toContain("{{ \$item['name'] }}")
         ->toContain("{{ \$item['price'] }}");
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
 
 // ---------------------------------------------------------------------------
 // Combined — order email (real-world scenario)
@@ -283,4 +282,162 @@ it('builds order-email.tsx with all features combined', function () {
     expect($html)
         ->toContain('@if($serviceFee > 0)')
         ->toContain('@endif');
-})->skip('Requires Node.js and dependencies installed');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
+
+// ---------------------------------------------------------------------------
+// Compiled output renders through Blade
+// ---------------------------------------------------------------------------
+
+it('compiles nested BladeForEach loops with custom loop variables', function () {
+    $tsx = <<<'TSX'
+import React from 'react';
+import { Html, Text } from '@react-email/components';
+import { BladeForEach } from '../../scripts/index';
+
+export default function NestedLoopsEmail() {
+  return (
+    <Html>
+      <BladeForEach items="orders" as="order">
+        <Text>Order $$order.number$$</Text>
+        <BladeForEach items="order.lines" as="line">
+          <Text>Line $$line.name$$</Text>
+        </BladeForEach>
+      </BladeForEach>
+    </Html>
+  );
+}
+TSX;
+
+    $html = readBuiltHtml(buildTestTemplate('nested-loops', $tsx));
+
+    expect($html)
+        ->toContain('@foreach($orders as $order)')
+        ->toContain("@foreach(\$order['lines'] as \$line)")
+        ->not->toContain('<blade-foreach');
+
+    $rendered = view('react-email.nested-loops', ['orders' => [
+        ['number' => 'A-1', 'lines' => [['name' => 'Mug'], ['name' => 'Tea']]],
+        ['number' => 'A-2', 'lines' => [['name' => 'Spoon']]],
+    ]])->render();
+
+    expect($rendered)
+        ->toContain('Order A-1')
+        ->toContain('Line Mug')
+        ->toContain('Line Tea')
+        ->toContain('Order A-2')
+        ->toContain('Line Spoon');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
+
+it('keeps string literals intact in BladeIf conditions', function () {
+    $tsx = <<<'TSX'
+import React from 'react';
+import { Html, Text } from '@react-email/components';
+import { BladeIf, BladeElseIf, BladeElse } from '../../scripts/index';
+
+export default function PlanEmail() {
+  return (
+    <Html>
+      <BladeIf condition="plan === 'premium' && count(seats) > 1">
+        <Text>Premium team</Text>
+        <BladeElseIf condition="plan === 'premium'">
+          <Text>Premium solo</Text>
+        </BladeElseIf>
+        <BladeElse>
+          <Text>Free plan</Text>
+        </BladeElse>
+      </BladeIf>
+    </Html>
+  );
+}
+TSX;
+
+    $html = readBuiltHtml(buildTestTemplate('plan-email', $tsx));
+
+    expect($html)
+        ->toContain("@if(\$plan === 'premium' && count(\$seats) > 1)")
+        ->toContain("@elseif(\$plan === 'premium')")
+        ->toContain('@else');
+
+    expect(view('react-email.plan-email', ['plan' => 'premium', 'seats' => [1, 2]])->render())
+        ->toContain('Premium team')->not->toContain('Premium solo')->not->toContain('Free plan');
+
+    expect(view('react-email.plan-email', ['plan' => 'premium', 'seats' => [1]])->render())
+        ->toContain('Premium solo')->not->toContain('Premium team');
+
+    expect(view('react-email.plan-email', ['plan' => 'free', 'seats' => []])->render())
+        ->toContain('Free plan')->not->toContain('Premium');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
+
+it('puts every directive on its own line so Blade compiles it', function () {
+    $tsx = <<<'TSX'
+import React from 'react';
+import { Html, Text } from '@react-email/components';
+import { BladeIf, BladeForEach } from '../../scripts/index';
+
+export default function AdjacentEmail() {
+  return (
+    <Html>
+      <BladeIf condition="showItems"><Text>Items:</Text></BladeIf>
+      <BladeForEach items="items"><Text>$$item.name$$</Text></BladeForEach>
+    </Html>
+  );
+}
+TSX;
+
+    buildTestTemplate('adjacent-email', $tsx);
+
+    $data = ['showItems' => true, 'items' => [['name' => 'Mug']]];
+
+    expect(view('react-email.adjacent-email', $data)->render())
+        ->toContain('Items:')->toContain('Mug')->not->toContain('@foreach');
+
+    expect(view('react-email.adjacent-email-text', $data)->render())
+        ->toContain('Items:')->toContain('Mug')->not->toContain('@');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
+
+it('converts BladeComponent props to bound and literal attributes', function () {
+    $tsx = <<<'TSX'
+import React from 'react';
+import { Html } from '@react-email/components';
+import { BladeComponent, BladeSlot, blade } from '../../scripts/index';
+
+export default function ComponentEmail() {
+  return (
+    <Html>
+      <BladeComponent name="mail::button" url={blade.string('url')} color="primary" label={'Say "hi"'}>
+        <BladeSlot name="title">Confirm</BladeSlot>
+        Click here
+      </BladeComponent>
+    </Html>
+  );
+}
+TSX;
+
+    $html = readBuiltHtml(buildTestTemplate('component-email', $tsx));
+
+    expect($html)
+        ->toContain('<x-mail::button :url="$url" color="primary" label=\'Say "hi"\'>')
+        ->toContain('<x-slot:title>Confirm</x-slot:title>')
+        ->toContain('</x-mail::button>')
+        ->not->toContain('blade-component');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
+
+it('ignores console output from templates when reading renderer results', function () {
+    $tsx = <<<'TSX'
+import React from 'react';
+import { Html, Text } from '@react-email/components';
+
+console.log('debug output from template');
+
+export default function NoisyEmail() {
+  console.log('rendering');
+  return (
+    <Html>
+      <Text>Hello $$name$$</Text>
+    </Html>
+  );
+}
+TSX;
+
+    expect(readBuiltHtml(buildTestTemplate('noisy-email', $tsx)))->toContain('{{ $name }}');
+})->skip(nodeDependenciesMissing(), 'Requires Node.js and dependencies installed');
