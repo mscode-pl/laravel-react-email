@@ -68,6 +68,14 @@ jobs:
           coverage: none
           tools: composer:v2
 
+      # Laravel 10 and 11 are end-of-life and every release has open advisories,
+      # which Composer refuses to install. Allowed here only to test compatibility.
+      - name: Allow end-of-life Laravel versions
+        if: matrix.laravel == '10.*' || matrix.laravel == '11.*'
+        run: |
+          composer config policy.advisories.block false 2>/dev/null || composer config audit.block-insecure false
+          echo "COMPOSER_NO_SECURITY_BLOCKING=1" >> "$GITHUB_ENV"
+
       - name: Install PHP dependencies
         run: |
           composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --dev --no-interaction --no-update
