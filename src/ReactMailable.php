@@ -14,8 +14,8 @@ abstract class ReactMailable extends Mailable
      * Override to customise the react-email view name used for this mailable.
      *
      * By default the class name is converted to kebab-case:
-     *   OrderConfirmation  →  order-confirmation
-     *   WelcomeEmail       →  welcome-email
+     *   OrderConfirmation  =>  order-confirmation
+     *   WelcomeEmail       =>  welcome-email
      *
      * The base class will look for:
      *   react-email.{view}       (HTML)

@@ -11,8 +11,8 @@ import { createSmartProxy } from './helpers';
 
 /**
  * Converts a dot-notation variable name to a bare Blade expression (no {{ }}).
- *   "price"        → "$price"
- *   "order.total"  → "$order['total']"
+ *   "price"        => "$price"
+ *   "order.total"  => "$order['total']"
  */
 function varToBlade(varName: string): string {
     const [base, ...rest] = varName.split('.');
@@ -52,10 +52,10 @@ const CONDITION_KEYWORDS = new Set([
  * Standalone identifiers and dot-paths are prefixed with `$`; string literals,
  * function calls, keywords and already-prefixed variables are left untouched.
  *
- *   "serviceFee > 0"            → "$serviceFee > 0"
- *   "order.total >= 100"        → "$order['total'] >= 100"
- *   "status === 'premium'"      → "$status === 'premium'"
- *   "count(items) > 0"          → "count($items) > 0"
+ *   "serviceFee > 0"            => "$serviceFee > 0"
+ *   "order.total >= 100"        => "$order['total'] >= 100"
+ *   "status === 'premium'"      => "$status === 'premium'"
+ *   "count(items) > 0"          => "count($items) > 0"
  */
 function convertConditionToBlade(condition: string): string {
     const token = /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(\$|->|::)?\b([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)\b(\s*\()?/g;
@@ -85,8 +85,8 @@ function loopVariable(name: string | undefined): string {
 /**
  * Scans source code for default props whose values ARE $$placeholder$$ strings.
  *
- *   propName = '$$varName$$'   → Map { propName → 'varName' }
- *   propName = "$$var.sub$$"   → Map { propName → 'var.sub' }
+ *   propName = '$$varName$$'   => Map { propName => 'varName' }
+ *   propName = "$$var.sub$$"   => Map { propName => 'var.sub' }
  *
  * These props are replaced with smart proxies before rendering, so calls like
  * price.toFixed(2) or items.map(...) don't crash at build time.
@@ -122,7 +122,7 @@ function parseAttributes(source: string): Attributes {
 }
 
 /**
- * Replaces every `<tag …>…</tag>` element, innermost first, so nested elements
+ * Replaces every `<tag ...>...</tag>` element, innermost first, so nested elements
  * of the same type (a loop inside a loop, an if inside an if) are converted
  * correctly instead of being cut at the first closing tag.
  */
@@ -168,14 +168,14 @@ function bladeComponentAttribute(key: string, value: unknown): string {
  * Post-processes rendered HTML, converting the custom elements emitted by the
  * Blade* components and smart proxies into Blade syntax:
  *
- *  <blade-slot>          → <x-slot:name>
- *  <blade-component>     → <x-name :prop="$var" prop="literal">
- *  <blade-foreach-auto>  → @foreach … @endforeach  (from proxy .map())
- *  <blade-forelse>       → @forelse … @empty … @endforelse
- *  <blade-foreach>       → @foreach … @endforeach
- *  <blade-if>            → @if … @elseif … @else … @endif
+ *  <blade-slot>          => <x-slot:name>
+ *  <blade-component>     => <x-name :prop="$var" prop="literal">
+ *  <blade-foreach-auto>  => @foreach ... @endforeach  (from proxy .map())
+ *  <blade-forelse>       => @forelse ... @empty ... @endforelse
+ *  <blade-foreach>       => @foreach ... @endforeach
+ *  <blade-if>            => @if ... @elseif ... @else ... @endif
  *
- * Must run BEFORE the global $$var$$ → {{ $var }} substitution.
+ * Must run BEFORE the global $$var$$ to {{ $var }} substitution.
  */
 function postProcessBlade(html: string): string {
     html = transformElements(html, 'blade-slot', (attrs, content) =>
@@ -239,8 +239,8 @@ function postProcessBlade(html: string): string {
 
 /**
  * Replaces the remaining placeholders with Blade echoes:
- *   $$raw:var$$ → {!! $var !!}
- *   $$var$$     → {{ $var }}
+ *   $$raw:var$$ => {!! $var !!}
+ *   $$var$$     => {{ $var }}
  */
 function replacePlaceholders(output: string): string {
     return output
@@ -249,7 +249,7 @@ function replacePlaceholders(output: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// HTML → plain text conversion
+// HTML to plain text conversion
 // ---------------------------------------------------------------------------
 
 /**
@@ -257,8 +257,8 @@ function replacePlaceholders(output: string): string {
  * Blade directives such as @foreach, @if, {{ $var }}).
  *
  * We intentionally do NOT use @react-email/render with plainText:true here,
- * because that renderer strips all HTML tags — including our custom
- * <blade-foreach*> and <blade-if> elements — before postProcessBlade() gets
+ * because that renderer strips all HTML tags, including our custom
+ * <blade-foreach*> and <blade-if> elements, before postProcessBlade() gets
  * a chance to convert them to @foreach / @if directives.
  */
 function htmlToPlainText(html: string): string {
@@ -303,7 +303,7 @@ async function buildOutput(templatePath: string): Promise<{ html: string; plainT
         throw new Error('Default export is not a React component');
     }
 
-    // e.g. price = '$$price$$' as any as number  →  smartProps.price = Proxy
+    // e.g. price = '$$price$$' as any as number  =>  smartProps.price = Proxy
     const source     = fs.readFileSync(resolvedPath, 'utf-8');
     const smartProps: Record<string, unknown> = {};
     for (const [propName, varName] of extractPlaceholderProps(source)) {

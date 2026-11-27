@@ -39,9 +39,9 @@ All notable changes to `laravel-react-email` will be documented in this file.
 
 ### Added
 
-- Support for nested variables using dot notation (e.g., `$$user.email$$` → `{{ $user['email'] }}`)
+- Support for nested variables using dot notation (e.g. `$$user.email$$` becomes `{{ $user['email'] }}`)
 - Windows path support in the React Email renderer
-- Comprehensive examples of nested variables in documentation
+- Examples of nested variables in the documentation
 
 ### Changed
 
@@ -65,11 +65,11 @@ All notable changes to `laravel-react-email` will be documented in this file.
 
 ### Breaking Changes
 
-- **Prebuild workflow**: Templates must now be compiled with `php artisan react-email:build` before sending emails
-- **Configuration changes**: Renamed config keys from `email_templates_path`/`blade_output_path` to `path`/`build_path`
-- **Removed hot reload**: The `enable_hot_reload` config option has been removed
-- **View references**: Changed from `react-email::template` to `react-email.template` notation
-- **Content method**: Now requires both `html` and `text` parameters instead of just `view`
+- Templates must now be compiled with `php artisan react-email:build` before sending emails
+- Renamed config keys from `email_templates_path`/`blade_output_path` to `path`/`build_path`
+- Removed the `enable_hot_reload` config option
+- View references changed from `react-email::template` to `react-email.template` notation
+- `Content` now requires both `html` and `text` parameters instead of just `view`
 
 ### Added
 

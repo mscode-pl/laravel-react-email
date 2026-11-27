@@ -8,7 +8,7 @@ const REACT_ELEMENT_TYPE = Symbol.for('react.transitional.element');
 /**
  * Creates a smart Proxy for a Blade placeholder variable.
  *
- * The proxy is transparent to React rendering — it serialises to $$varName$$
+ * The proxy is transparent to React rendering: it serialises to $$varName$$
  * in HTML output (which the post-processor converts to {{ $varName }}), while
  * safely handling numeric methods (.toFixed etc.) and array methods (.map etc.)
  * without crashing during build-time SSR.
@@ -36,8 +36,8 @@ export function createSmartProxy(varName: string): any {
             if (prop === 'props')       return { children: placeholder };
 
             // --- Primitive coercion ---
-            // hint='number'  → 0  (arithmetic like price * qty won't NaN)
-            // hint='string' / 'default' → placeholder  (JSX text, string concat)
+            // hint='number': 0, so arithmetic like price * qty doesn't give NaN
+            // hint='string' / 'default': the placeholder (JSX text, string concat)
             if (prop === Symbol.toPrimitive) {
                 return (hint: string) => (hint === 'number' ? 0 : placeholder);
             }
@@ -54,7 +54,7 @@ export function createSmartProxy(varName: string): any {
             if (propStr === 'toString') return () => placeholder;
             if (propStr === 'valueOf')  return () => 0;
 
-            // --- String: .split() → split the placeholder string normally ---
+            // --- String: .split() splits the placeholder string normally ---
             // Needed for patterns like message.split('\n').map(...)
             if (propStr === 'split') {
                 return (sep: string) => placeholder.split(sep);
@@ -75,33 +75,33 @@ export function createSmartProxy(varName: string): any {
                 };
             }
 
-            // --- Array: .filter() → same proxy (no-op for build) ---
+            // --- Array: .filter() returns the same proxy (no-op for build) ---
             if (propStr === 'filter') return () => createSmartProxy(varName);
 
-            // --- Array: .forEach() → run callback once ---
+            // --- Array: .forEach() runs the callback once ---
             if (propStr === 'forEach') {
                 return (callback: (item: any) => void) => {
                     callback(createItemProxy(varName));
                 };
             }
 
-            // --- Array: .reduce() → numeric proxy for the result ---
+            // --- Array: .reduce() returns a numeric proxy for the result ---
             if (propStr === 'reduce') {
                 return (_fn: unknown, _initial: unknown) =>
                     createSmartProxy(`${varName}_total`);
             }
 
-            // --- Array: .length → 1 so loops execute once ---
+            // --- Array: .length is 1 so loops execute once ---
             if (propStr === 'length') return 1;
 
-            // --- Array: Symbol.iterator → yield one item proxy ---
+            // --- Array: Symbol.iterator yields one item proxy ---
             if (prop === Symbol.iterator) {
                 return function* () {
                     yield createItemProxy(varName);
                 };
             }
 
-            // --- Nested property access → nested proxy ---
+            // --- Nested property access returns a nested proxy ---
             // e.g. order.total, user.address.city
             const skipProps = new Set(['__esModule', '__proto__', 'constructor', 'then', 'catch', 'finally']);
             if (typeof prop === 'string' && !skipProps.has(propStr)) {
@@ -196,7 +196,7 @@ export function createItemProxy(arrayVarName: string): any {
  * ```
  */
 export const blade = Object.assign(
-    /** Returns a smart proxy typed as `any` — use for generic placeholders. */
+    /** Returns a smart proxy typed as `any`, for generic placeholders. */
     (varName: string): any => createSmartProxy(varName),
     {
         /**
@@ -228,7 +228,7 @@ export const blade = Object.assign(
 
         /**
          * Returns a raw `$$raw:varName$$` placeholder typed as `any`.
-         * Compiles to `{!! $varName !!}` in Blade — use for pre-rendered HTML
+         * Compiles to `{!! $varName !!}` in Blade. Use it for pre-rendered HTML
          * content (CMS output, markdown-rendered text) that must NOT be escaped.
          *
          * WARNING: Only use with trusted content. Raw output skips HTML escaping.
